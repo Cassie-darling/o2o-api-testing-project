@@ -1,0 +1,113 @@
+<h1 seq="auto">外卖浏览与交易链路</h1>
+
+<h2 seq="auto">定位（前端 + Cookie）</h2>
+<ul>
+<li>使用百度地图 JS API（ak=QMCCTcIV28j9WXXk4YIUDOuYHCgzMNnE）做定位、逆地址、地图选点；选定坐标写入 Cookie：longitude、latitude、pos_city、pos_district。</li>
+<li>用例要点：拒绝定位、经纬度为空/越界（&gt;180 / &gt;90）、境外坐标、Cookie 篡改、切换城市。该 ak 在入驻页会弹“密钥无效” alert 并冻结页面 JS。</li>
+</ul>
+
+<h2 seq="auto">附近商家列表</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Shopnearby/get_Own_Store_List</code>　|　<b>鉴权</b>：否</p>
+<table>
+<colgroup><col width="160"/><col width="110"/><col width="90"/><col width="460"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>longitude</p></td><td><p>decimal</p></td><td><p>是</p></td><td><p>定位经度</p></td></tr>
+<tr><td><p>latitude</p></td><td><p>decimal</p></td><td><p>是</p></td><td><p>定位纬度</p></td></tr>
+<tr><td><p>storeclass_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>店铺分类 ID，0=全部</p></td></tr>
+<tr><td><p>page</p></td><td><p>int</p></td><td><p>否</p></td><td><p>滚动分页页码</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>（JSON 数组，注意无 code 外层，按距离排序）：</p>
+<pre lang="json"><code>[{"store_id":15,"store_name":"O2O南岸测试餐厅","is_platform_store":0,
+  "store_longitude":"106.559476","store_latitude":"29.556933",
+  "area_info":"重庆 重庆市 南岸区","store_address":"...","distance":0,
+  "store_logo":"http://.../default_store_logo.jpg","goods_list":[...]}]</code></pre>
+<p><b>用例要点</b>：经纬度边界、分页越界、分类不存在、空结果、距离排序、下架/歇业/到期店铺是否过滤。</p>
+
+<h2 seq="auto">店铺与商品详情</h2>
+<ul>
+<li>店铺详情（服务端渲染）：<code>GET /index.php/home/Store/index/store_id/{id}.html</code>，展示起送价、配送费、营业时间、评分、店内分类；全部商品 <code>GET /home/store/goods_all/store_id/{id}.html</code>。</li>
+<li>商品详情：<code>GET /index.php/home/goods/index/goods_id/{id}.html</code>。</li>
+<li>多规格 SKU：<code>GET /home/goods/getspeclist.html?goods_commonid={commonid}</code> → <code>{"code":10000,"result":{...}}</code>。</li>
+<li>销售记录 / 咨询片段：<code>/home/goods/salelog/goods_id/{id}/store_id/{sid}.html</code>、<code>/home/goods/consulting/...</code>（HTML 片段）。</li>
+<li>用例要点：不存在/关闭/到期店铺、营业时段外能否下单、goods_id 非法/下架/删除、库存为 0、多规格切换价格与 SKU、价格库存一致性。</li>
+</ul>
+
+<h2 seq="auto">加入购物车</h2>
+<p><b>URL</b>：<code>POST /index.php/home/cart/add.html</code>　|　<b>鉴权</b>：是　|　<b>Content-Type</b>：application/x-www-form-urlencoded</p>
+<table>
+<colgroup><col width="150"/><col width="100"/><col width="90"/><col width="480"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>goods_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>商品 ID（多规格为具体规格 SKU 的 goods_id）</p></td></tr>
+<tr><td><p>quantity</p></td><td><p>int</p></td><td><p>是</p></td><td><p>本次加入数量</p></td></tr>
+<tr><td><p>store_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>店铺 ID</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：</p>
+<pre lang="json"><code>成功：     {"state":"true","num":1,"amount":"25.00"}
+重复加购： {"state":"false"}
+店主买本店：{"msg":"不能购买自己店铺的商品"}</code></pre>
+<p><b>用例要点</b>：未登录加购、数量&gt;库存、负数/0/超大数量、跨店购物车、店主买本店、规格 goods_id 混淆、并发加购库存扣减。</p>
+
+<h2 seq="auto">购物车查询 / 修改 / 删除</h2>
+<ul>
+<li>店铺购物车（必带 store_id，否则返回 HTML 页面）：<code>GET /index.php/home/store/getcartlist.html?store_id={sid}</code></li>
+</ul>
+<pre lang="json"><code>{"code":10000,"result":{"cart_list":[{"cart_id":91,"buyer_id":161,
+ "store_id":15,"store_name":"O2O南岸测试餐厅","goods_id":79,
+ "goods_name":"测试-招牌黄焖鸡米饭","goods_price":"25.00","goods_num":1,
+ "goods_image":null}],"cart_amount":25}}</code></pre>
+<ul>
+<li>删除项：<code>GET /index.php/home/Cart/del.html?cart_id={cart_id}</code> → <code>{"state":"true","quantity":0,"amount":"0.00"}</code>（quantity/amount 为删除后剩余值）。</li>
+<li>右侧购物车 HTML：<code>GET /home/cart/ajax_load/type/html.html</code>；改数量复用 cart/add（quantity 为新总数）。</li>
+<li>用例要点：删除后金额/数量回算、跨店金额合计、越权操作他人 cart_id。</li>
+</ul>
+
+<h2 seq="auto">结算第一步（确认订单页）</h2>
+<p><b>URL</b>：<code>POST /index.php/home/buy/buy_step1.html</code>　|　<b>鉴权</b>：是（未登录跳登录并带 ref_url）</p>
+<table>
+<colgroup><col width="160"/><col width="100"/><col width="90"/><col width="470"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>ifcart</p></td><td><p>int</p></td><td><p>是</p></td><td><p>1=来自购物车；立即购买为 0</p></td></tr>
+<tr><td><p>cart_id[]</p></td><td><p>string</p></td><td><p>是</p></td><td><p>值格式为「购物车ID|数量」，如 <code>91|1</code>；立即购买为「goods_id|数量」。<b>只传 91 不带 |1 会报“所购商品无效”</b>，可多店多条</p></td></tr>
+</tbody>
+</table>
+<p><b>拦截规则</b>（dispatch_jump 错误页，实测）：商品下架/不存在→“商品已下架或不存在”；店铺未开启配送→“店铺[xxx]不支持配送”。</p>
+<p>结算页返回 HTML，内含表单 <code>#order_form</code>（action=buy_step2.html），并加载：地址列表 <code>GET /home/Buy/load_addr.html</code>、配送距离校验、发票 <code>/home/Buy/load_inv.html</code> 等片段；页面固定在线支付（pay_name hidden=online），展示商品金额、配送费（店铺15 为 2 元）、起送价、营业时间。</p>
+
+<h2 seq="auto">配送距离校验（关键业务规则）</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Buy/calc_distance.html?store_ids={店铺id}&amp;addr_id={地址id}</code>　|　<b>鉴权</b>：是</p>
+<pre lang="json"><code>可配送：{"state":true,"msg":"","data":[]}
+超范围：{"state":false,"msg":"您的地址12440933m超出绿叶水果的配送距离100m","data":[]}</code></pre>
+<p>规则：按店铺与收货地址经纬度算直线距离，与店铺“配送距离”比较，前端据此置 ALLOW_ADDRESS 拦截提交。</p>
+<p><b>用例要点</b>：恰好等于配送距离、超 1 米、店铺无坐标、地址无经纬度、多店铺部分超范围、篡改 addr_id、伪造距离。</p>
+
+<h2 seq="auto">提交订单（第二步）</h2>
+<p><b>URL</b>：<code>POST /index.php/home/buy/buy_step2.html</code>（表单 #order_form）　|　<b>鉴权</b>：是　|　<b>Content-Type</b>：form-urlencoded</p>
+<table>
+<colgroup><col width="180"/><col width="640"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>字段</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>cart_id[]</p></td><td><p><code>购物车ID|数量</code>（购物车）或 <code>goods_id|数量</code>（立即购买），可多店多条</p></td></tr>
+<tr><td><p>address_id</p></td><td><p>选中的收货地址 ID（必填，前端校验非空）；使用新地址时改传 true_name/city_id/area_id/area_info/address/longitude/latitude/mob_phone 等</p></td></tr>
+<tr><td><p>pay_message[{store_id}]</p></td><td><p>按店铺留言，下标为 store_id，如 <code>pay_message[15]</code></p></td></tr>
+<tr><td><p>order_from</p></td><td><p>订单来源，PC=1（外卖）</p></td></tr>
+<tr><td><p>ifcart</p></td><td><p>是否来自购物车（1）</p></td></tr>
+<tr><td><p>pay_name</p></td><td><p>支付方式，结算页固定 hidden 值 <code>online</code>（在线支付），无支付方式选择</p></td></tr>
+<tr><td><p>vat_hash</p></td><td><p><b>防重令牌</b>，每次结算页变化、一次性；必须先用 buy_step1 换取</p></td></tr>
+<tr><td><p>buy_city_id / invoice_id</p></td><td><p>城市 ID（可空）、发票 ID（可选，空）</p></td></tr>
+<tr><td><p>pd_pay / rcb_pay</p></td><td><p>预存款/充值卡支付勾选，勾选需校验支付密码（本链路未用）</p></td></tr>
+</tbody>
+</table>
+<p><b>实测请求体</b>（店铺15 / 商品79 / 地址58）：</p>
+<pre lang="text"><code>POST /index.php/home/buy/buy_step2.html
+Content-Type: application/x-www-form-urlencoded
+Cookie: 登录会话
+
+cart_id[]=91|1&pay_message[15]=测试订单&order_from=1&ifcart=1&
+pay_name=online&vat_hash=JRe6M7gzEK4hGdR-ZlzWzbXWGf&
+address_id=58&buy_city_id=&invoice_id=</code></pre>
+<callout emoji="⚠️" background-color="light-red" border-color="red"><p><b>当前测试环境阻断，无法取得成功响应（真实抓包，非臆造）</b></p><p>上述请求返回 HTTP 200 的 dispatch_jump 错误页：<code>SQLSTATE[HY000]: General error: 1364 Field 'o2o_distributor_realname' doesn't have a default value</code>。</p><p>成功态本应返回 JSON（含订单号 pay_sn/order_sn 与支付跳转 URL），但本环境必现失败，故成功 JSON 与支付页 URL 无法真实取得，待环境修复后按此请求体回归抓取。重复提交同一 vat_hash 返回“您已经下过单了”；失败请求还会清空对应购物车项但不生成订单（数据一致性缺陷）。</p></callout>

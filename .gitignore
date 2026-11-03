@@ -1,0 +1,16 @@
+# 操作系统与编辑器临时文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+*~
+*.swp
+
+# Office 临时文件
+~$*
+
+# Python 缓存（merge.py 执行后可能产生）
+__pycache__/
+*.pyc
+
+# 本地临时目录
+.tmp/

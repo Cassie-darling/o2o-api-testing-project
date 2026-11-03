@@ -1,0 +1,629 @@
+"Bug编号","所属产品","所属模块","所属项目","所属执行","相关需求","相关任务","Bug标题","关键词","严重程度","优先级","Bug类型","操作系统","浏览器","重现步骤","Bug状态","截止日期","激活次数","激活时间","是否确认","抄送给","由谁创建","创建日期","影响版本","指派给","指派日期","解决者","解决方案","解决版本","解决日期","由谁关闭","关闭日期","重复Bug","相关Bug","来源用例","最后修改者","修改日期","附件","反馈者","通知邮箱"
+"48	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.2settlement_bank_account_number 长度超限，失败（成功进入step3）","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[前置条件]
+会员已登录，已完成Step1
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/store_joinin/step3.html
+2、Content-Type: application/x-www-form-urlencoded
+settlement_bank_account_name=工商银行
+settlement_bank_account_number=622848001234567890123456789012（30位）
+bank_name=工商银行
+bank_address=广东 东莞市 东莞市
+is_settlement_account=1
+3、提交发送请求
+[结果]
+成功，进入step3
+[期望]
+失败，提示银行账号长度超限
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"47	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.2company_name 含SQL注入，失败（存在注入漏洞）","","1(#1)","1(#1)","安全相关(#security)","","","[前置条件]
+会员已登录
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerjoininc2c/step2.html
+2、Content-Type: application/x-www-form-urlencoded
+company_name=&#039; OR 1=1 --&company_address=重庆&province_id=22
+&city_id=62&district_id=352&company_address_detail=南滨路&longitude=106.559476&latitude=100.456.556933&contacts_name=张三&contacts_phone=1380013800&contacts_email=test@test.com&business_licence_number=91500108MA5TEST001&business_licence_address=重庆&business_licence_start=2024-01-01&business_licence_end=2023-12-31&business_sphere=餐饮
+3、提交发送请求
+[结果]
+成功，进入step2，存在注入漏洞
+[期望]
+失败或转义存储，无注入执行
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"46	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.2business_licence_end 早于start，失败（成功进入step2）","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[前置条件]
+会员已登录
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerjoininc2c/step2.html
+2、Content-Type: application/x-www-form-urlencoded
+company_name=测试餐厅&company_address=重庆&province_id=22
+&city_id=62&district_id=352&company_address_detail=南滨路&longitude=106.559476&latitude=100.456.556933&contacts_name=张三&contacts_phone=1380013800&contacts_email=test@test.com&business_licence_number=91500108MA5TEST001&business_licence_address=重庆&business_licence_start=2024-01-01&business_licence_end=2023-12-31&business_sphere=餐饮
+3、提交发送请求
+[结果]
+成功，进入step2
+[期望]
+失败，提示结束日期不能早于开始日期
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"45	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.2contacts_phone 10位（少一位），失败（成功进入step2）","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[前置条件]
+会员已登录
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerjoininc2c/step2.html
+2、Content-Type: application/x-www-form-urlencoded
+company_name=测试餐厅&company_address=重庆&province_id=22
+&city_id=62&district_id=352&company_address_detail=南滨路&longitude=106.559476&latitude=100.456.556933&contacts_name=张三&contacts_phone=1380013800&contacts_email=test@test.com&business_licence_number=91500108MA5TEST001&business_licence_address=重庆&business_licence_start=2024-01-01&business_licence_end=2029-12-31&business_sphere=餐饮
+3、提交发送请求
+[结果]
+成功，进入step2
+[期望]
+失败，提示手机号格式错误
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"44	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.2latitude > 90 越界，失败（成功进入step2）","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[前置条件]
+会员已登录
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerjoininc2c/step2.html
+2、Content-Type: application/x-www-form-urlencoded
+company_name=测试餐厅&company_address=重庆&province_id=22
+&city_id=62&district_id=352&company_address_detail=南滨路&longitude=106.559476&latitude=100.456.556933&contacts_name=张三&contacts_phone=13800138000&contacts_email=test@test.com&business_licence_number=91500108MA5TEST001&business_licence_address=重庆&business_licence_start=2024-01-01&business_licence_end=2029-12-31&business_sphere=餐饮
+3、提交发送请求
+[结果]
+成功，进入step2
+[期望]
+失败，提示纬度不合法
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"43	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.2province_id 为空/9999，失败（非必填）","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[前置条件]
+会员已登录
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerjoininc2c/step2.html
+2、Content-Type: application/x-www-form-urlencoded
+company_name=测试餐厅&company_address=重庆&province_id=空/9999
+&city_id=62&district_id=352&company_address_detail=南滨路&longitude=106.559476&latitude=29.556933&contacts_name=张三&contacts_phone=13800138000&contacts_email=test@test.com&business_licence_number=91500108MA5TEST001&business_licence_address=重庆&business_licence_start=2024-01-01&business_licence_end=2029-12-31&business_sphere=餐饮
+3、提交发送请求
+[结果]
+保存成功，
+province_id非必填
+[期望]
+失败，提示请选择省份
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"42	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.8接单成功后状态变更（返回SQL1364）","","1(#1)","1(#1)","代码错误(#codeerror)","","","[前置条件]
+商家已登录；订单待接单
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerorder/receipt_order.html
+2、Content-Type: application/x-www-form-urlencoded
+order_id=1
+3、提交发送请求
+[结果]
+下单失败返回SQL1364，商家不会有订单显示
+{
+    “code“: 10001,
+    “message“: “该订单不存在“,
+    “result“: ““
+}
+[期望]
+{“code“:10000}，订单状态变为配送中/待取货
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"41	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.8重复接单,返回错误（下单失败，提示订单不存在）","","1(#1)","1(#1)","代码错误(#codeerror)","","","[前置条件]
+商家已登录；订单已接单
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/sellerorder/receipt_order.html
+2、Content-Type: application/x-www-form-urlencoded
+order_id=1
+3、提交发送请求
+[结果]
+{
+    “code“: 10001,
+    “message“: “该订单不存在“,
+    “result“: ““
+}，下单失败，商家不会有订单显示
+[期望]
+返回错误，提示订单状态不允许重复接单
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:07","","","","","","","","","(#0)","","","","","",""
+"40	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.6o2o_distributor_name SQL 注入,保存失败(保存成功)","","1(#1)","1(#1)","安全相关(#security)","","","[前置条件]
+管理员已登录；
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/admin/o2o_distributor/add.html
+2、Content-Type: application/x-www-form-urlencoded;o2o_distributor_name=&#039; OR 1=1 --, o2o_distributor_password=123456, o2o_distributor_realname=平台测试员, o2o_distributor_phone=13900139100, o2o_distributor_region_id=352, store_id=0, o2o_distributor_state=1,
+2o_distributor_remark、o2o_distributor_email、o2o_distributor_introduce、o2o_distributor_region_name、o2o_distributor_errand_deposit
+3、提交发送请求
+[结果]
+状态码：200，<ｓｃｒｉｐｔ>
+    parent.layer.a l e r t (&#039;保存成功&#039;,{yes:function(index, layero){parent.location.reload();},cancel:function(index, layero){parent.location.reload();}});
+ｓｃｒｉｐｔ>SQL 注入防护失效，存在 SQL 注入漏洞！
+[期望]
+保存失败，无注入执行
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:06","","","","","","","","","(#0)","","","","","",""
+"39	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.6平台配送员新增成功（实测有bug）","","2(#2)","2(#2)","代码改进(#codeimprovement)","","","[前置条件]
+管理员已登录；
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/admin/o2o_distributor/add.html
+2、Content-Type: application/x-www-form-urlencoded;o2o_distributor_name=plattest, o2o_distributor_password=123456, o2o_distributor_realname=平台测试员, o2o_distributor_phone=13900139100, o2o_distributor_region_id=352, store_id=0, o2o_distributor_state=1,
+2o_distributor_remark、o2o_distributor_email、o2o_distributor_introduce、o2o_distributor_region_name、o2o_distributor_errand_deposit
+3、提交发送请求
+[结果]
+状态码：200，<ｓｃｒｉｐｔ>
+    parent.layer.a l e r t (&#039;保存成功&#039;,{yes:function(index, layero){parent.location.reload();},cancel:function(index, layero){parent.location.reload();}});
+ｓｃｒｉｐｔ>
+[期望]
+保存成功，返回“保存成功“提示,实测提示：非必填如下，有非空校验，不填写o2o_distributor_remark、o2o_distributor_email、o2o_distributor_introduce、o2o_distributor_region_name、o2o_distributor_errand_deposit报500
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 21:44:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 21:44:06","","","","","","","","","(#0)","","","","","",""
+"38	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","04.3重复审核同一申请","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[前置条件]
+管理员已登录；申请已审核通过
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/admin/store/store_joinin_verify.html
+2、Content-Type: application/x-www-form-urlencoded;Cookie:（后台管理员登录态）verify_type=pass, member_id=161, paying_amount=0, joinin_message=审核通过
+3、再次提交发送请求
+[结果]
+提示：参数错误，状态码：200，
+[期望]
+应提示：已审核或重复操作，店铺状态不重复变更
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:46","","","","","","","","","(#0)","","","","","",""
+"37	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","03下单失败后购物车回滚验证，清空购物车（购物车未被清空）","","1(#1)","1(#1)","代码错误(#codeerror)","","","[前置条件]
+买家已登录，购物车有商品
+[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/cart/add.html
+2、Content-Type: application/x-www-form-urlencoded;goods_id=79, quantity=1, store_id=15
+3、发送请求
+4、检查：GET /home/store/getcartlist.html?store_id=15
+[结果]
+bug:购物车未被清空且无订单生成，
+下单（触发1364阻断）
+[期望]
+下单失败，清空购物车商品，无订单生成
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"36	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","03未登录加购，拒绝（加购成功）","","2(#2)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/cart/add.html
+2、Content-Type: application/x-www-form-urlencoded;goods_id=79, quantity=1, store_id=15
+3、发送请求
+[结果]
+请求自动创建 PHP 空会话，后端没有校验 session 内的登录态，直接执行加购，商品成功加入购物车。
+{“state“:“true“,“num“:1,“amount“:“25.00“}
+[期望]
+拒绝，跳转登录或返回错误
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"35	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02回显接口正常调用，返回 cb({&quot;text&quot;:&quot; 东莞市&quot;})（返回 &quot; 广东 东莞市 东莞市&quot;）","","3(#3)","3(#3)","标准规范(#standard)","","","[步骤]
+1、请求：GET
+http://o2o.project.hctestedu.com/index.php/home/Index/json_area.html
+2、无（Query 传参）：src=cache、callback=cb、area_id=3144
+3、发送请求
+[结果]
+状态码：200，返回cb({
+? ? “text“: “ 广东 东莞市 东莞市“
+}),bug:返回格式异常，未返回区县列表
+[期望]
+应返回具体东莞市的区县地区
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"34	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02市级列表正常查询，返回市级地区（返回含全部省级地区）","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[步骤]
+1、请求：GET
+http://o2o.project.hctestedu.com/index.php/home/Index/json_area.html
+2、无（Query 传参）：src=cache、callback=cb、area_id=19
+3、发送请求
+[结果]
+状态码：200，
+返回cb({“0“:[[1,“北京“],...]})，含全部省级行政区bug
+[期望]
+返回 “19“:[[199,“广州“],[305,“东莞“]...]
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"33	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02收货地址新增：未选到区area_id 缺失，新增失败(新增成功)","","2(#2)","1(#1)","设计缺陷(#designdefect)","","","[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/memberaddress/add/o2o_errand_type/0.html
+2、Content-Type: application/x-www-form-urlencoded; Cookie: true_name=张三, city_id=305, , area_info=广东 东莞市 东莞市, address=测试路24号, mob_phone=1380013800, longitude=113.75, latitude=23.05
+3、发送请求
+[结果]
+{
+    “code“: 10000,
+    “message“: “保存成功“,
+    “result“: {
+        “address_id“: “106“
+    }
+}
+[期望]
+新增失败，提示请选择所在地区
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"32	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02收货地址新增：手机号10位,新增失败（新增成功）","","2(#2)","1(#1)","设计缺陷(#designdefect)","","","[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/memberaddress/add/o2o_errand_type/0.html
+2、Content-Type: application/x-www-form-urlencoded; Cookie: true_name=张三, city_id=305, area_id=3144, area_info=广东 东莞市 东莞市, address=测试路24号, mob_phone=1380013800, longitude=113.75, latitude=23.05
+3、发送请求
+[结果]
+{
+    “code“: 10000,
+    “message“: “保存成功“,
+    “result“: {
+        “address_id“: “105“
+    }
+}
+[期望]
+新增失败，提示手机号格式错误
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"31	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","01退出登录后 Cookie 失效验证（未失效）","","1(#1)","1(#1)","安全相关(#security)","","","[步骤]
+1、请求：GET
+http://o2o.project.hctestedu.com/index.php/home/login/logout.html
+2、
+3、发送请求
+[结果]
+无Set-Cookie，没有清除旧会话
+[期望]
+服务端会话销毁，旧 Cookie 无法鉴权
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:41:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:41:45","","","","","","","","","(#0)","","","","","",""
+"30	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","01手机找回密码功能（未开启）","","1(#1)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、请求：POST
+http://o2o.project.hctestedu.com/index.php/home/connectsms/find_password.html
+2、Content-Type: application/x-www-form-urlencoded;sms_captcha,sms_mobile,sms_password
+3、发送请求
+[结果]
+{
+? ? “code“: 10001,
+??“message“: “系统没有开启手机找回密码功能“,
+? ? “result“: ““
+}
+未开启该功能该测试用例无法测
+[期望]
+开启手机找回密码功能进行相关用例测试
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:22:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:22:06","","","","","","","","","(#0)","","","","","",""
+"29	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","01SQL注入验证码，返回&quot;验证失败&quot;，无注入执行（系统没有开启手机注册功能！ 该测试用例无法测）","","2(#2)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Connectsms/check_captcha.html
+2、Query传参：sms_captcha=&#039; OR 1=1 --
+3、发送请求
+[结果]
+系统没有开启手机注册功能！
+该测试用例无法测
+[期望]
+返回“验证失败“
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:22:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:22:06","","","","","","","","","(#0)","","","","","",""
+"28	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","01验证码过期，返回‘验证失败’（没有开启手机注册功能！）","","2(#2)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Connectsms/check_captcha.html
+2、Query传参：sms_captcha=xxx，发送后验证码等待过期时间再校验
+3、发送请求
+[结果]
+系统没有开启手机注册功能！
+该测试用例无法测
+[期望]
+返回“验证失败“
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:22:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:22:06","","","","","","","","","(#0)","","","","","",""
+"27	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","03longitude 参数 SQL 注入，返回错误（存在SQL漏洞）","","1(#1)","1(#1)","安全相关(#security)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Shopnearby/get_Own_Store_List
+2、Query传参：longitude=&#039; OR 1=1 --、latitude=29.558、storeclass_id=0
+3、发送请求
+[结果]
+`longitude` 参数存在报错型
+ SQL 注入漏洞（高危）
+[期望]
+返回错误或空数组，无注入执行
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:11:36","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:11:36","","","","","","","","","(#0)","","","","","",""
+"26	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02JSONP 回调名自定义","","1(#1)","1(#1)","安全相关(#security)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Index/json_area.html
+2、Query传参：src=cache、callback=<ｓｃｒｉｐｔ>a l e r t (1)ｓｃｒｉｐｔ>
+3、发送请求
+[结果]
+存在的反射型 XSS 高危漏洞
+该测试用例不通过
+[期望]
+验证不允许任意回调名（XSS 风险评估）
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:11:36","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:11:36","","","","","","","","","(#0)","","","","","",""
+"25	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02area_id 越界值，返回空（返回含全部省级行政区）","","3(#3)","2(#2)","设计缺陷(#designdefect)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Index/json_area.html
+2、Query传参：src=cache、callback=cb、area_id=999999
+3、发送请求
+[结果]
+状态码：200，
+返回cb({“0“:[[1,“北京“],...]})，含全部省级行政区,bug:未对area_id做条件筛选
+[期望]
+返回空数组或 null，无异常
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:11:36","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:11:36","","","","","","","","","(#0)","","","","","",""
+"24	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","02同会员地址上限验证，新增失败（新增成功）","","3(#3)","1(#1)","设计缺陷(#designdefect)","","","[前置条件]
+已登录，地址数已达上限
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/memberaddress/add/o2o_errand_type/0.html
+2、Content-Type: application/x-www-form-urlencoded;
+3、发送请求
+[结果]
+{
+    “code“: 10000,
+    “message“: “保存成功“,
+    “result“: {
+        “address_id“: “88“
+    }
+}，无上限
+[期望]
+新增失败，提示地址数量已达上限
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:11:36","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:11:36","","","","","","","","","(#0)","","","","","",""
+"23	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","","","(#0)","01同号高频发送,拒绝首次以后的请求（未开启手机号注册功能）","","3(#3)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Connectsms/get_captcha.html
+2、Query传参：member_number=13800138000
+3、发送请求:1分钟内发送 10 次同号
+[结果]
+系统没有开启手机注册功能！
+[期望]
+触发频控，后续请求被拒绝
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 20:11:36","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 20:11:36","","","","","","","","","(#0)","","","","","",""
+"22	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","XSS脚本账号执行，返回{&quot;code&quot;:10001,...}，脚本不执行（长度限制执行）","","1(#1)","1(#1)","安全相关(#security)","","","[前置条件]
+
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com
+2、body:/x-www-form-urlencoded,member_name=<ｓｃｒｉｐｔ>a l e r t (1)</ｓｃｒｉｐｔ>
+3、发送请求
+[结果]
+bug,长度限制不能执行脚本
+[期望]
+{&quot;code&quot;:10001,...}，脚本不执行
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 19:41:11","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 19:41:11","","","","","","","","","(#0)","测试人员","2026-10-16 20:11:51","","","",""
+"21	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","用户名低于最小长度2位，返回false(返回true)","","3(#3)","2(#2)","代码错误(#codeerror)","","","[步骤]
+1、请求：GET http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、Query传参：member_name=ab
+3、发送请求
+[结果]
+返回 true,未作长度校验
+
+[期望]
+返回 false 或错误提示
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 19:39:02","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 19:39:02","","","","","","","","","(#0)","测试人员","2026-10-16 20:12:22","","","",""
+"20	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","05必填参数正确填写，发单提交成功（失败，报SQL:1364错误）","","1(#1)","1(#1)","代码错误(#codeerror)","","","[前置条件]
+已登录账号
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/member_o2o_errand_order/add.html
+2、body:/x-www-form-urlencoded,
+o2o_errand_order_type || o2o_errand_order_pickup_region_id || o2o_errand_order_pickup_lng / lat || o2o_errand_order_pickup_address || o2o_errand_order_pickup_name / phone || o2o_errand_order_deliver_region_id || o2o_errand_order_deliver_lng / lat || o2o_errand_order_deliver_address || o2o_errand_order_deliver_name / phone || o2o_errand_order_detail
+3、发送请求
+[结果]
+页面加载失败，接口返回 code:10001，message:缺少跑腿订单类型，无法展示跑腿下单页面，不能进行跑腿下单操作，跑腿模块全部测试用例无法开展。
+[期望]
+成功加载跑腿下单页面，展示下单表单，用户可填写跑腿订单信息。
+[备注]
+该问题属于阻断性缺陷，需修复后，才能继续执行跑腿订单相关全部测试用例
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 14:03:53","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 14:03:53","","","","","","","","","(#0)","测试人员","2026-10-16 20:14:51","","","",""
+"19	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","04.4新增商品,新增成功（失败，未上传图片成功）","","1(#1)","1(#1)","设计缺陷(#designdefect)","","","[前置条件]
+商家已登录；店铺已绑定类目5
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/sellergoodsadd/save_goods.html
+2、body:/x-www-form-urlencoded,
+type_id=0, cate_id=25 , cate_name=西餐, g_name=西冷, g_price=24.00, g_storage=100, g_state=1，g_serial=“”,image_path=chou.jpg
+3、发送请求
+[结果]
+实测补充参数，改写form data传图片依旧提示：要求上传图片，才能进行下一步的确认商品发布
+[期望]
+单一参数上传图片成功即可，明确body，提示发布商品成功
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 13:59:45","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 13:59:45","","","","","","","","","(#0)","","","{3595F359-17A7-449c-A372-10A8AF62F267}.png
+
+","","",""
+"18	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","04.2seller_name 与step1提交的不一致，失败（成功进入step3->step4）","","1(#1)","1(#1)","设计缺陷(#designdefect)","","","[前置条件]
+已完成Step1+Step2，进入step3.html
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/store_joinin/step4.html
+2、body:/x-www-form-urlencoded,
+seller_name=otheruser
+&store_name=AM店铺&storegrade_id=1&joinin_year=1&storeclass_id=99&btn_select_category=11
+3、发送请求
+[结果]
+成功，填了其他人的账号依旧成功step3->step4
+[期望]
+失败，提示账号不一致
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 13:30:29","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 13:30:29","","","","","","","","","(#0)","","","","","",""
+"17	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","04.6商家配送员新增，新增成功（验证已知缺陷，新增失败）","","1(#1)","1(#1)","设计缺陷(#designdefect)","","","[前置条件]
+商家已登录
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/seller_o2o_distributor/add.html
+2、body:/x-www-form-urlencoded,
+o2o_distributor_name=sellertest, o2o_distributor_password=123456, o2o_distributor_realname=测试员, o2o_distributor_phone=13900139000, o2o_distributor_state=1
+3、发送请求
+[结果]
+{
+    &quot;code&quot;: 10001,
+    &quot;message&quot;: &quot;请选择状态&quot;,
+    &quot;result&quot;: &quot;&quot;
+}
+[期望]
+修复后期望：保存成功
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 13:15:09","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 13:15:09","","","","","","","","","(#0)","","","","","",""
+"16	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","vat_hash 重复提交，“您已下过单了”（SQL:1364报错）","","1(#1)","1(#1)","设计缺陷(#designdefect)","","","
+[前置条件]
+买家已登录，商品79在售，已通过buy_step1获取vat_hash
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/buy/buy_step2.html
+2、body:/x-www-form-urlencoded,
+cart_id[]=79|1
+address_id=58, pay_name=online, vat_hash=同一 vat_hash 再次提交, order_from=1, ifcart=0
+3、发送请求
+[结果]
+状态码：200，
+返回SQLSTATE[HY000]: General error: 1364 Field &#039;o2o_distributor_realname&#039; doesn&#039;t have a default value
+[期望]
+返回提示：“您已下过单了”，修复SQL:1364报错
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 13:11:00","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 13:11:00","","","","","","","","","(#0)","测试人员","2026-10-16 13:11:56","","","",""
+"15	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","03立即购买下单，下单成功（下单失败）","","1(#1)","1(#1)","设计缺陷(#designdefect)","","","[前置条件]
+买家已登录，商品79在售，已通过buy_step1获取vat_hash
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/buy/buy_step2.html
+2、body:/x-www-form-urlencoded,
+cart_id[]=79|1
+address_id=58, pay_name=online, vat_hash=有效令牌, order_from=1, ifcart=0
+3、发送请求
+[结果]
+状态码：200，
+返回SQLSTATE[HY000]: General error: 1364 Field &#039;o2o_distributor_realname&#039; doesn&#039;t have a default value
+[期望]
+下单成功，修复SQL:1364报错
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 13:09:34","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 13:09:34","","","","","","","","","(#0)","测试人员","2026-10-16 13:09:46","","","",""
+"14	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","03购物车正常下单,提交订单成功（提交失败，实测发现SQLSTATE[HY000]: General error: 1364）","","1(#1)","1(#1)","设计缺陷(#designdefect)","","","[前置条件]
+买家已登录，购物车有cart_id=95，地址58在配送范围，已通过buy_step1获取vat_hash
+[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/buy/buy_step2.html
+2、body:/x-www-form-urlencoded,
+cart_id[]=95|1
+vat_hash=hlcHansUjIcUPLKip8ef0uHZjm6L40ZXoKE
+address_id=58
+pay_message[]=15
+order_from=1
+ifcart=1
+3、发送请求
+[结果]
+状态码：200，
+返回SQLSTATE[HY000]: General error: 1364 Field &#039;o2o_distributor_realname&#039; doesn&#039;t have a default value
+本质是商家店铺不能添加配送员
+[期望]
+修复跑腿服务，返回下单成功
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-16 13:06:06","主干(#trunk)","T:测试开发人员(#test001)","2026-10-16 13:06:06","","","","","","","","","(#0)","","","","","",""
+"13	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","发送手机验证码（该功能未开启！）","","2(#2)","1(#1)","配置相关(#config)","","","[步骤]
+1、在注册、登录、找回密码页面中，选择手机号调用发送验证码接口
+2、正确填写11位已注册合法手机号
+3、点击「获取验证码」按钮，提交发送请求
+[结果]
+验证码发送失败，接口 / 页面明确返回提示：系统没有开启手机注册功能！系统没有开启手机登录功能！系统没有开启手机找回密码功能！
+[期望]
+1、后台开启手机注册功能配置开关
+2、输入合法手机号后可正常触发验证码短信发送，接口返回成功
+3、手机号可收到验证码，后续可正常完成手机注册全流程
+备注
+该问题为环境配置类阻塞性缺陷，直接导致手机注册模块所有测试用例无法执行，影响测试进度，建议优先开启功能配置后再开展该模块测试。
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-11 22:45:59","主干(#trunk)","T:测试开发人员(#test001)","2026-10-11 22:45:59","","","","","","","","","(#0)","测试人员","2026-10-11 22:48:35","{D04FE4B8-363C-4d08-89A4-1D0817601C52}.png
+
+","","",""
+"12	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","连续5次错误登录是否有锁定，锁定(无锁定)","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/login/login.html
+2、body:/x-www-form-urlencoded,member_name=testo2o1943, member_password=123456789
+3、发送请求
+[结果]
+{
+    &quot;code&quot;: 10001,
+    &quot;message&quot;: &quot;账号或密码错误&quot;,
+    &quot;result&quot;: &quot;&quot;
+}无锁定登录，等待1分钟
+[期望]
+连续登录失败5次，提示锁定登录，请稍后1分钟后再试
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-11 13:52:26","主干(#trunk)","T:测试开发人员(#test001)","2026-10-11 13:52:27","","","","","","","","","(#0)","","","{CE85E759-DDC4-4fcb-9DFE-B52CBF9F1B51}.png
+
+{D1DA98D3-FF1E-47e0-AFA3-D8F354E6EE43}.png
+
+","","",""
+"11	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","用户名不合规+其他正确，返回注册失败(返回注册成功)","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[步骤]
+1、请求：POST http://o2o.project.hctestedu.com/index.php/home/login/register.html
+2、选择body:x-www-form-urlencoded,传member_name=user111??, password=123456, confirm=123456
+3、发送请求
+4、图片中已注册过，故显示已存在
+[结果]
+注册成功
+[期望]
+对于不符合填写规则的字母应提示“用户名含敏感字符“，返回注册失败
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 22:39:36","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 22:39:36","","","","","","","","","(#0)","测试人员","2026-10-11 22:49:28","{0C338F41-0D73-48d3-9417-C286C693AA58}.png
+
+","","",""
+"10	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","注册用户名含 XSS 脚本返回false(返回true)","","1(#1)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、接口请求：POST http://o2o.project.hctestedu.com/index.php/home/login/register.html
+2、选择body:x-www-form-urlencoded,传member_name=<ｓｃｒｉｐｔ>a l e r t (1)</ｓｃｒｉｐｔ>, password=123456, confirm=123456
+3、发送请求
+[结果]
+返回长度限制不能执行XXS脚本
+[期望]
+XXS脚本能执行，测试验证是否注册失败，脚本不被存储或执行
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 22:35:05","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 22:35:05","","","","","","","","","(#0)","","","","","",""
+"9	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","用户名边界15位注册,返回注册成功(注册失败，提示“用户名长度是3到13位)","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[步骤]
+1、接口请求：POST http://o2o.project.hctestedu.com/index.php/home/login/register.html
+2、选择body:x-www-form-urlencoded，member_name=abcdefghijklmno, password=123456, confirm=123456
+3、发送请求
+[结果]
+接口返回状态码 200，注册失败，错误提示显示“用户名长度是3到13位，与3-15位不符”
+[期望]
+统一前后端用户名长度3-15位，结果返回注册成功
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 22:30:20","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 22:30:20","","","","","","","","","(#0)","测试人员","2026-10-11 22:49:54","{FC799130-2B43-4025-98AE-84FCB0050258}.png
+
+","","",""
+"8	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","传多余参数abc，返回false(返回true)","","3(#3)","3(#3)","设计缺陷(#designdefect)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、传member_name=newuser_xyz88, user_name=newuser_xyz88,abc:&quot;123&quot;
+3、发送请求
+[结果]
+返回true
+[期望]
+多余参数传递应false或忽略
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 22:09:50","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 22:09:50","","","","","","","","","(#0)","测试人员","2026-10-10 22:10:31","{41C7E6BC-AAD3-431f-B2FC-172FF3E022A0}.png
+
+","","",""
+"7	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","用户名传超长字符，返回false(返回true)","","2(#2)","2(#2)","设计缺陷(#designdefect)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、member_name=aaaaaaaaaaaaaaaaaaaaaaaaaaa
+3、发送请求
+[结果]
+返回ture
+[期望]
+member_name字符长度不能超过15位，超长字符校验应返回false,提示用户名长度不能超过15位
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 22:04:15","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 22:04:15","","","","","","","","","(#0)","测试人员","2026-10-11 22:50:19","{A1587C9D-E0E0-4822-8117-5DBFD501A91B}.png
+
+","","",""
+"6	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","不合规则特殊字符用户名，返回false(返回true)","","2(#2)","2(#2)","代码错误(#codeerror)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、member_name=test@#$%1
+3、发送请求
+[结果]
+返回true
+[期望]
+不合规特殊字符应当返回false,提示该用户名含特殊敏感字符
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 21:50:19","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 21:50:19","","","","","","","","","(#0)","测试人员","2026-10-11 22:50:46","{4A8FA22E-AF87-4192-8A51-DB0C7CB7920B}.png
+
+","","",""
+"5	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","member_name执行XSS脚本返回false(返回true)","","1(#1)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、传member_name=\<ｓｃｒｉｐｔ>a l e r t (1)\</ｓｃｒｉｐｔ>，user_name=abcdefghijklmnop
+3、发送请求
+[结果]
+返回true,状态码为200
+[期望]
+member应防XSS脚本，返回false,XSS脚本不执行
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 21:48:38","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 21:48:39","","","","","","","","","(#0)","测试人员","2026-10-10 21:51:59","{3600E24B-752F-49f1-9C04-F393F55B46AD}.png
+
+","","",""
+"4	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","member_name注入SQL,返回false(返回true)","","1(#1)","1(#1)","代码错误(#codeerror)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、传member_name=&#039; OR 1=1 --，user_name=abcdefghijklmnop
+3、发送请求
+[结果]
+返回true,状态码为200
+[期望]
+member应防SQL注入字符，返回false不执行注入
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 21:41:26","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 21:41:26","","","","","","","","","(#0)","测试人员","2026-10-10 21:43:57","{801D8B95-E4AE-4d72-BAB8-405138FE4043}.png
+
+","","",""
+"3	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","用户名超过最大长度15位,返回false(返回true,未作长度校验)","","2(#2)","2(#2)","代码错误(#codeerror)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、传member_name=abcdefghijklmnop，user_name=abcdefghijklmnop
+3、发送请求
+[结果]
+接口正常响应，校验结果返回 true；用户名长度不足 3 位时仍被判定为合法，未作长度校验
+[期望]
+当 user_name 、member_name字符长度大于15位时，校验应返回 false，并返回「用户名长度不能大于15位」的提示，拦截不合法的用户名。
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 21:38:37","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 21:38:37","","","","","","","","","(#0)","测试人员","2026-10-11 22:51:13","{96466C9E-C7EF-4fa4-BECF-24CC924EA395}.png
+
+","","",""
+"2	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","用户名校验低于最小长度3位返回false（返回true，未作长度校验）","","2(#2)","2(#2)","代码错误(#codeerror)","","","[步骤]
+1、在postman打开get http://o2o.project.hctestedu.com/index.php/home/Login/check_member.html
+2、传member_name=ab，user_name=ab
+3、发送请求
+[结果]
+接口正常响应，校验结果返回 true；用户名长度不足 3 位时仍被判定为合法，未作长度校验
+[期望]
+当 user_name 、member_name字符长度小于 3 位时，校验应返回 false，并返回「用户名长度不能少于 3 位」的提示，拦截不合法的用户名。
+","激活(#active)","","0	","","未确认(#0)","","测试人员","2026-10-10 21:33:17","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 21:33:18","","","","","","","","","(#0)","测试人员","2026-10-11 22:51:45","{209D6996-9038-4f54-A987-22DF533A6FFC}.png
+
+","","",""
+"1	","o2o德尚商城(#1)","/(#0)","o2o德尚商城(#1)","o2o德尚商城(不启用迭代的项目)(#2)","","(#0)","注册时用户名校验(参数user_name非必填)","","1(#1)","1(#1)","代码错误(#codeerror)","","","【前置条件】
+注册接口可正常访问，请求方式为 POST，参数格式为 x-www-form-urlencoded
+[步骤]
+1、在接口测试工具中构造注册请求，URL 填写对应注册接口地址
+2、请求体传入参数：
+member_name = test_reg01（传入合法的会员名称）
+不携带 user_name 参数（或 user_name 赋值为空字符串）
+3、点击发送请求，查看接口响应结果与后端注册状态
+[结果]
+接口返回状态码 200，账号注册成功；系统未对 user_name 执行必填校验，缺失 / 为空该参数时仍可正常完成注册。
+[期望]
+user_name 为注册必填参数，当参数缺失或值为空时，接口应返回校验失败提示（如 “用户名不能为空”），拦截注册请求。
+","激活(#active)","","0	","","未确认(#0)","","admin","2026-10-10 21:07:19","主干(#trunk)","T:测试开发人员(#test001)","2026-10-10 21:07:20","","","","","","","","","(#0)","测试人员","2026-10-10 21:33:53","{5BA3CBB2-B448-4120-9867-C4D707B29B8E}.png
+
+","","",""

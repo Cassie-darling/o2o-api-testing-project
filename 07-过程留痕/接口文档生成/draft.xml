@@ -1,0 +1,155 @@
+<title>德尚 DS·O2O 外卖版 核心交易链路接口文档（测试用）</title>
+
+<callout emoji="📌" background-color="light-gray" border-color="gray"><p><b>文档用途</b>：供接口测试人员解析接口并编写测试用例。所有接口均为 2026-09 对测试站真实抓包/实测，未取得真实成功响应的接口已明确标注，未做任何臆造。</p><p>前台应用：http://o2o.project.hctestedu.com/Home/Index/index.html　|　后台管理：http://o2o.project.hctestedu.com/admin/index/index.html（admin / admin123）</p><p>技术栈：德尚 DS·O2O 外卖版（ThinkPHP 5.0.24，传统 MPA + iframe + AJAX 混合）。</p></callout>
+
+<h1 seq="auto">通用约定（测试必读）</h1>
+
+<h2 seq="auto">基础地址与路由</h2>
+<ul>
+<li>入口根：<code>http://o2o.project.hctestedu.com/index.php</code></li>
+<li>买家端：<code>/index.php/home/{控制器}/{方法}.html</code></li>
+<li>商家端：控制器同样挂在 home 模块下，如 <code>/index.php/home/sellerorder/index.html</code>、<code>/index.php/home/sellergoodsadd/save_goods.html</code></li>
+<li>平台后台：<code>/index.php/admin/{控制器}/{方法}.html</code></li>
+<li>支持 ThinkPHP 路径参数，如 <code>/order_id/999999.html</code>、<code>/state_type/state_new.html</code>；伪静态后缀 <code>.html</code> 可省略，路由大小写不敏感。</li>
+</ul>
+
+<h2 seq="auto">鉴权方式</h2>
+<ul>
+<li>基于 Cookie-Session（PHPSESSID），登录成功后服务端 Set-Cookie，同源请求自动携带；无独立 token / Authorization 头。</li>
+<li>买家会员、商家卖家、平台后台为三套相互独立的会话；买家与卖家同域但身份标记不同。</li>
+<li><b>串号坑（重点）</b>：登录卖家后再登录买家，卖家身份标记可能残留，导致加购本店商品返回“不能购买自己店铺的商品”。干净的买家用例前应先调用卖家退出、买家退出，再重新登录买家。</li>
+<li>未登录访问受保护接口：页面类 302 跳登录页（可带 ref_url 回跳），AJAX 类返回未登录 JSON 或跳转。</li>
+</ul>
+
+<h2 seq="auto">三类响应形态（断言要点）</h2>
+<table>
+<colgroup><col width="150"/><col width="330"/><col width="340"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>形态</p></th><th background-color="light-gray"><p>特征</p></th><th background-color="light-gray"><p>成功/失败判定</p></th></tr></thead>
+<tbody>
+<tr><td><p><b>AJAX JSON</b></p></td><td><p>下单、登录、增删改等异步操作返回，如 <code>{"code":10000,"message":"...","result":""}</code></p></td><td><p><code>code=10000</code> 成功；<code>code=10001</code> 业务失败，message 为中文原因，result 为数据或新建 ID</p></td></tr>
+<tr><td><p><b>表单跳转页 dispatch_jump</b></p></td><td><p>传统 form POST 返回的 HTML，含 <code>&lt;div class="system-message"&gt;</code></p></td><td><p>子节点 <code>.success</code> 成功 / <code>.error</code> 失败，<code>.detail</code> 为详情，3 秒自动跳转</p></td></tr>
+<tr><td><p><b>纯文本 / JSONP</b></p></td><td><p>校验类返回 <code>true</code>/<code>false</code>/中文；地区接口为 JSONP（必带 callback）</p></td><td><p>按文本或回调数据判断；JSONP 响应尾部夹带 think_page_trace，解析需截取</p></td></tr>
+</tbody>
+</table>
+
+<h2 seq="auto">通用测试关注点</h2>
+<ul>
+<li>鉴权：未登录、会话过期、买家/卖家/后台三类身份越权（篡改 order_id / address_id / store_id 访问他人数据）。</li>
+<li>参数：必填缺失、类型错误、长度边界、枚举越界、负数/0/超大金额与数量、特殊字符与 SQL/XSS 注入位。</li>
+<li>幂等：防重令牌 vat_hash 一次性、重复提交下单、重复接单/取消/确认收货、刷新重放。</li>
+<li>一致性：金额以服务端重算为准、下单失败回滚、取消后库存/优惠券/购物车回滚。</li>
+</ul>
+
+<h2 seq="auto">测试账号与基础数据速查</h2>
+<table>
+<colgroup><col width="170"/><col width="220"/><col width="430"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>对象</p></th><th background-color="light-gray"><p>账号 / ID</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>平台后台</p></td><td><p>admin / admin123</p></td><td><p>独立会话</p></td></tr>
+<tr><td><p>测试买家</p></td><td><p>testo2o1943 / 123456（buyer_id=161）</p></td><td><p>地址55 广东东莞；地址58 重庆南岸区（店铺15 下单用，在配送范围内）</p></td></tr>
+<tr><td><p>主力测试店铺</p></td><td><p>店铺15「O2O南岸测试餐厅」，卖家 testojoins / 123456</p></td><td><p>坐标 106.559476,29.556933；配送 5000m / 配送费 2 元；商家自配送；营业 08:00-18:00</p></td></tr>
+<tr><td><p>测试商品</p></td><td><p>goods_id=commonid=79「测试-招牌黄焖鸡米饭」</p></td><td><p>店铺15，售价 ¥25.00，库存 100，在售（上架免平台审核）</p></td></tr>
+<tr><td><p>地区 ID</p></td><td><p>广东19 / 东莞305 / 东莞市区3144；重庆22 / 重庆市62 / 南岸区352</p></td><td><p>地区末级 ID 用于地址与下单</p></td></tr>
+<tr><td><p>平台配送员</p></td><td><p>platdeliver（id=1，南岸区）、sdeliver15</p></td><td><p>后台代建（商家端新增接口有缺陷，见缺陷章节）</p></td></tr>
+</tbody>
+</table>
+
+<h1 seq="auto">鉴权链路（注册 / 登录 / 退出）</h1>
+
+<h2 seq="auto">用户名可用性校验（注册远程校验）</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Login/check_member.html</code>　|　<b>鉴权</b>：否　|　<b>Content-Type</b>：无</p>
+<table>
+<colgroup><col width="160"/><col width="110"/><col width="90"/><col width="460"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>member_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>待校验用户名（前端会同时携带 user_name）</p></td></tr>
+<tr><td><p>user_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>同用户名（remote data 字段）</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>（纯文本）：可用返回 <code>true</code>；已存在返回 <code>false</code>（实测 admin→false，新用户名→true）。</p>
+<p><b>用例要点</b>：已注册用户名、3/15 字符边界、特殊字符、空值、超长。</p>
+
+<h2 seq="auto">会员注册</h2>
+<p><b>URL</b>：<code>POST /index.php/home/login/register.html</code>　|　<b>鉴权</b>：否（已登录访问直接 302 会员中心，不执行注册）　|　<b>Content-Type</b>：application/x-www-form-urlencoded</p>
+<table>
+<colgroup><col width="200"/><col width="110"/><col width="90"/><col width="420"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>规则</p></th></tr></thead>
+<tbody>
+<tr><td><p>member_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>3-15 位中文/英文/数字/“-”，且远程校验可用</p></td></tr>
+<tr><td><p>member_password</p></td><td><p>string</p></td><td><p>是</p></td><td><p>6-20 位</p></td></tr>
+<tr><td><p>member_password_confirm</p></td><td><p>string</p></td><td><p>是</p></td><td><p>与 member_password 一致</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：成功后<b>自动登录</b>并 302 跳转 <code>/Home/member/index.html</code>；用户名重复返回 dispatch_jump 错误页，文案“用户名已存在”，3 秒后 history.back。前端 jQuery validate（required/minlength/maxlength/equalTo + remote），服务端亦校验。</p>
+<p><b>用例要点</b>：重复用户名、用户名边界、密码 5/6/20/21 位、两次密码不一致、空提交、已登录态访问。</p>
+
+<h2 seq="auto">会员登录</h2>
+<p><b>URL</b>：<code>POST /index.php/home/login/login.html</code>　|　<b>鉴权</b>：否　|　表单 id：login_normal_form；无图形验证码</p>
+<table>
+<colgroup><col width="200"/><col width="110"/><col width="90"/><col width="420"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>member_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>用户名/手机号（<b>买家字段名是 member_name，误用 user_name 会返回“用户名必填”</b>）</p></td></tr>
+<tr><td><p>member_password</p></td><td><p>string</p></td><td><p>是</p></td><td><p>密码</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：</p>
+<pre lang="json"><code>成功：{"code":10000,"message":"登录成功","result":""}
+失败：{"code":10001,"message":"账号或密码错误","result":""}</code></pre>
+<p><b>用例要点</b>：错误密码、不存在账号、空值、密码大小写、连续错误是否锁定/出验证码、登录后回跳来源页。</p>
+
+<h2 seq="auto">卖家登录 / 退出</h2>
+<ul>
+<li>卖家登录：<code>POST /index.php/home/sellerlogin/login.html</code>，Body 字段为 <code>seller_name</code>（卖家账号，非会员名）+ <code>member_password</code>；成功为 dispatch_jump 跳商家中心。</li>
+<li>买家退出：<code>GET /index.php/home/Login/logout.html</code>，清会话后 302 跳首页。</li>
+<li>卖家退出：<code>GET /index.php/home/sellerlogin/logout.html</code>。</li>
+<li>用例要点：卖家账号与会员账号区分、停用/审核中卖家登录、未登录访问 seller 控制器、退出后浏览器后退、退出后受保护接口不可访问。</li>
+</ul>
+
+<h2 seq="auto">手机短信验证码（本站未开启）</h2>
+<ul>
+<li>发送：<code>GET /index.php/home/Connectsms/get_captcha.html</code>，参数 type（1注册/2登录/3找回）、sms_mobile（11位）。</li>
+<li>校验：<code>GET /index.php/home/Connectsms/check_captcha.html</code>，参数 sms_mobile、sms_captcha，返回 true/false。</li>
+<li>找回密码：<code>POST /index.php/home/connectsms/find_password.html</code>，参数 sms_mobile、sms_captcha、member_password。</li>
+<li><b>实测</b>：本站短信功能全部关闭，type=1/2/3 分别返回“系统没有开启手机注册/登录/找回密码功能”。相关用例需后台开启短信网关后验证。</li>
+</ul>
+
+<h1 seq="auto">基础数据链路（地区 / 收货地址）</h1>
+
+<h2 seq="auto">地区级联数据（省/市/区）</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Index/json_area.html?src=cache&amp;callback=cb</code>　|　<b>鉴权</b>：否（JSONP，必带 callback，否则 500）</p>
+<pre lang="json"><code>cb({"0":[[1,"北京"],[19,"广东"],[22,"重庆"]...],
+    "19":[[199,"广州"],[305,"东莞"]...],
+    "305":[[3144,"东莞市"]...]})</code></pre>
+<ul>
+<li>key 为父级 area_id（"0"=省级列表），value 为 <code>[area_id, 名称]</code> 数组；一次性下发全量（约 126KB），前端本地级联。</li>
+<li>回显接口：<code>GET /index.php/home/Index/json_area_show?area_id={id}&amp;callback=cb</code> → <code>cb({"text":" 东莞市"})</code>。</li>
+<li>用例要点：area_id 越界/非数字/注入、自定义回调名、全量数据完整性、缓存头。</li>
+</ul>
+
+<h2 seq="auto">收货地址 - 新增</h2>
+<p>列表页：<code>GET /index.php/home/memberaddress/index/o2o_errand_type/0.html</code>（0=收货地址，1=跑腿发件地址）。</p>
+<p>表单页：<code>GET /index.php/home/memberaddress/add/o2o_errand_type/0.html</code>　<b>提交</b>：<code>POST</code> 同一 URL　|　<b>鉴权</b>：是</p>
+<table>
+<colgroup><col width="150"/><col width="100"/><col width="90"/><col width="480"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>true_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>收货人姓名</p></td></tr>
+<tr><td><p>city_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>城市 ID（重庆市=62）</p></td></tr>
+<tr><td><p>area_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>末级区县 ID（南岸区=352），需选到最后一级；<b>无 province_id 字段</b></p></td></tr>
+<tr><td><p>area_info</p></td><td><p>string</p></td><td><p>是</p></td><td><p>地区全称，如“重庆 重庆市 南岸区”</p></td></tr>
+<tr><td><p>address</p></td><td><p>string</p></td><td><p>是</p></td><td><p>详细地址</p></td></tr>
+<tr><td><p>mob_phone</p></td><td><p>string</p></td><td><p>是</p></td><td><p>手机号（11 位）；tel_phone 座机可选</p></td></tr>
+<tr><td><p>is_default</p></td><td><p>int</p></td><td><p>否</p></td><td><p>checkbox=1 设为默认</p></td></tr>
+<tr><td><p>longitude / latitude</p></td><td><p>decimal</p></td><td><p>是</p></td><td><p>经纬度（百度地图选点），配送范围/距离判定用</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：<code>{"code":10000,"message":"保存成功","result":{"address_id":"58"}}</code></p>
+<p><b>用例要点</b>：未选到区、手机号格式、经纬度缺失对配送范围影响、设默认后原默认是否取消、地址上限、特殊字符。</p>
+
+<h2 seq="auto">收货地址 - 编辑 / 删除</h2>
+<ul>
+<li>编辑回填：<code>GET /index.php/home/memberaddress/edit/address_id/{id}.html</code>；提交：<code>POST</code> 同一 URL，Body 同新增。</li>
+<li>删除：<code>GET /index.php/home/memberaddress/drop/address_id/{id}.html</code>（前端 ds_ajaxget_confirm 弹“您确定要删除吗?”），成功 <code>{"code":10000,"message":"删除成功","result":""}</code>。</li>
+<li><b>核心安全用例</b>：越权改/删他人 address_id、重复删除、删除默认地址后默认归属、删除被订单引用的地址、id 篡改。</li>
+</ul>

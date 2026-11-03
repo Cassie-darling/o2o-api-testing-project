@@ -1,0 +1,483 @@
+<title>德尚 DS·O2O 外卖版 核心交易链路接口文档（测试用）</title>
+
+<callout emoji="📌" background-color="light-gray" border-color="gray"><p><b>文档用途</b>：供接口测试人员解析接口并编写测试用例。所有接口均为 2026-09 对测试站真实抓包/实测，未取得真实成功响应的接口已明确标注，未做任何臆造。</p><p>前台应用：http://o2o.project.hctestedu.com/Home/Index/index.html　|　后台管理：http://o2o.project.hctestedu.com/admin/index/index.html（admin / admin123）</p><p>技术栈：德尚 DS·O2O 外卖版（ThinkPHP 5.0.24，传统 MPA + iframe + AJAX 混合）。</p></callout>
+
+<h1 seq="auto">通用约定（测试必读）</h1>
+
+<h2 seq="auto">基础地址与路由</h2>
+<ul>
+<li>入口根：<code>http://o2o.project.hctestedu.com/index.php</code></li>
+<li>买家端：<code>/index.php/home/{控制器}/{方法}.html</code></li>
+<li>商家端：控制器同样挂在 home 模块下，如 <code>/index.php/home/sellerorder/index.html</code>、<code>/index.php/home/sellergoodsadd/save_goods.html</code></li>
+<li>平台后台：<code>/index.php/admin/{控制器}/{方法}.html</code></li>
+<li>支持 ThinkPHP 路径参数，如 <code>/order_id/999999.html</code>、<code>/state_type/state_new.html</code>；伪静态后缀 <code>.html</code> 可省略，路由大小写不敏感。</li>
+</ul>
+
+<h2 seq="auto">鉴权方式</h2>
+<ul>
+<li>基于 Cookie-Session（PHPSESSID），登录成功后服务端 Set-Cookie，同源请求自动携带；无独立 token / Authorization 头。</li>
+<li>买家会员、商家卖家、平台后台为三套相互独立的会话；买家与卖家同域但身份标记不同。</li>
+<li><b>串号坑（重点）</b>：登录卖家后再登录买家，卖家身份标记可能残留，导致加购本店商品返回“不能购买自己店铺的商品”。干净的买家用例前应先调用卖家退出、买家退出，再重新登录买家。</li>
+<li>未登录访问受保护接口：页面类 302 跳登录页（可带 ref_url 回跳），AJAX 类返回未登录 JSON 或跳转。</li>
+</ul>
+
+<h2 seq="auto">三类响应形态（断言要点）</h2>
+<table>
+<colgroup><col width="150"/><col width="330"/><col width="340"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>形态</p></th><th background-color="light-gray"><p>特征</p></th><th background-color="light-gray"><p>成功/失败判定</p></th></tr></thead>
+<tbody>
+<tr><td><p><b>AJAX JSON</b></p></td><td><p>下单、登录、增删改等异步操作返回，如 <code>{"code":10000,"message":"...","result":""}</code></p></td><td><p><code>code=10000</code> 成功；<code>code=10001</code> 业务失败，message 为中文原因，result 为数据或新建 ID</p></td></tr>
+<tr><td><p><b>表单跳转页 dispatch_jump</b></p></td><td><p>传统 form POST 返回的 HTML，含 <code>&lt;div class="system-message"&gt;</code></p></td><td><p>子节点 <code>.success</code> 成功 / <code>.error</code> 失败，<code>.detail</code> 为详情，3 秒自动跳转</p></td></tr>
+<tr><td><p><b>纯文本 / JSONP</b></p></td><td><p>校验类返回 <code>true</code>/<code>false</code>/中文；地区接口为 JSONP（必带 callback）</p></td><td><p>按文本或回调数据判断；JSONP 响应尾部夹带 think_page_trace，解析需截取</p></td></tr>
+</tbody>
+</table>
+
+<h2 seq="auto">通用测试关注点</h2>
+<ul>
+<li>鉴权：未登录、会话过期、买家/卖家/后台三类身份越权（篡改 order_id / address_id / store_id 访问他人数据）。</li>
+<li>参数：必填缺失、类型错误、长度边界、枚举越界、负数/0/超大金额与数量、特殊字符与 SQL/XSS 注入位。</li>
+<li>幂等：防重令牌 vat_hash 一次性、重复提交下单、重复接单/取消/确认收货、刷新重放。</li>
+<li>一致性：金额以服务端重算为准、下单失败回滚、取消后库存/优惠券/购物车回滚。</li>
+</ul>
+
+<h2 seq="auto">测试账号与基础数据速查</h2>
+<table>
+<colgroup><col width="170"/><col width="220"/><col width="430"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>对象</p></th><th background-color="light-gray"><p>账号 / ID</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>平台后台</p></td><td><p>admin / admin123</p></td><td><p>独立会话</p></td></tr>
+<tr><td><p>测试买家</p></td><td><p>testo2o1943 / 123456（buyer_id=161）</p></td><td><p>地址55 广东东莞；地址58 重庆南岸区（店铺15 下单用，在配送范围内）</p></td></tr>
+<tr><td><p>主力测试店铺</p></td><td><p>店铺15「O2O南岸测试餐厅」，卖家 testojoins / 123456</p></td><td><p>坐标 106.559476,29.556933；配送 5000m / 配送费 2 元；商家自配送；营业 08:00-18:00</p></td></tr>
+<tr><td><p>测试商品</p></td><td><p>goods_id=commonid=79「测试-招牌黄焖鸡米饭」</p></td><td><p>店铺15，售价 ¥25.00，库存 100，在售（上架免平台审核）</p></td></tr>
+<tr><td><p>地区 ID</p></td><td><p>广东19 / 东莞305 / 东莞市区3144；重庆22 / 重庆市62 / 南岸区352</p></td><td><p>地区末级 ID 用于地址与下单</p></td></tr>
+<tr><td><p>平台配送员</p></td><td><p>platdeliver（id=1，南岸区）、sdeliver15</p></td><td><p>后台代建（商家端新增接口有缺陷，见缺陷章节）</p></td></tr>
+</tbody>
+</table>
+
+<h1 seq="auto">鉴权链路（注册 / 登录 / 退出）</h1>
+
+<h2 seq="auto">用户名可用性校验（注册远程校验）</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Login/check_member.html</code>　|　<b>鉴权</b>：否　|　<b>Content-Type</b>：无</p>
+<table>
+<colgroup><col width="160"/><col width="110"/><col width="90"/><col width="460"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>member_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>待校验用户名（前端会同时携带 user_name）</p></td></tr>
+<tr><td><p>user_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>同用户名（remote data 字段）</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>（纯文本）：可用返回 <code>true</code>；已存在返回 <code>false</code>（实测 admin→false，新用户名→true）。</p>
+<p><b>用例要点</b>：已注册用户名、3/15 字符边界、特殊字符、空值、超长。</p>
+
+<h2 seq="auto">会员注册</h2>
+<p><b>URL</b>：<code>POST /index.php/home/login/register.html</code>　|　<b>鉴权</b>：否（已登录访问直接 302 会员中心，不执行注册）　|　<b>Content-Type</b>：application/x-www-form-urlencoded</p>
+<table>
+<colgroup><col width="200"/><col width="110"/><col width="90"/><col width="420"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>规则</p></th></tr></thead>
+<tbody>
+<tr><td><p>member_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>3-15 位中文/英文/数字/“-”，且远程校验可用</p></td></tr>
+<tr><td><p>member_password</p></td><td><p>string</p></td><td><p>是</p></td><td><p>6-20 位</p></td></tr>
+<tr><td><p>member_password_confirm</p></td><td><p>string</p></td><td><p>是</p></td><td><p>与 member_password 一致</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：成功后<b>自动登录</b>并 302 跳转 <code>/Home/member/index.html</code>；用户名重复返回 dispatch_jump 错误页，文案“用户名已存在”，3 秒后 history.back。前端 jQuery validate（required/minlength/maxlength/equalTo + remote），服务端亦校验。</p>
+<p><b>用例要点</b>：重复用户名、用户名边界、密码 5/6/20/21 位、两次密码不一致、空提交、已登录态访问。</p>
+
+<h2 seq="auto">会员登录</h2>
+<p><b>URL</b>：<code>POST /index.php/home/login/login.html</code>　|　<b>鉴权</b>：否　|　表单 id：login_normal_form；无图形验证码</p>
+<table>
+<colgroup><col width="200"/><col width="110"/><col width="90"/><col width="420"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>member_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>用户名/手机号（<b>买家字段名是 member_name，误用 user_name 会返回“用户名必填”</b>）</p></td></tr>
+<tr><td><p>member_password</p></td><td><p>string</p></td><td><p>是</p></td><td><p>密码</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：</p>
+<pre lang="json"><code>成功：{"code":10000,"message":"登录成功","result":""}
+失败：{"code":10001,"message":"账号或密码错误","result":""}</code></pre>
+<p><b>用例要点</b>：错误密码、不存在账号、空值、密码大小写、连续错误是否锁定/出验证码、登录后回跳来源页。</p>
+
+<h2 seq="auto">卖家登录 / 退出</h2>
+<ul>
+<li>卖家登录：<code>POST /index.php/home/sellerlogin/login.html</code>，Body 字段为 <code>seller_name</code>（卖家账号，非会员名）+ <code>member_password</code>；成功为 dispatch_jump 跳商家中心。</li>
+<li>买家退出：<code>GET /index.php/home/Login/logout.html</code>，清会话后 302 跳首页。</li>
+<li>卖家退出：<code>GET /index.php/home/sellerlogin/logout.html</code>。</li>
+<li>用例要点：卖家账号与会员账号区分、停用/审核中卖家登录、未登录访问 seller 控制器、退出后浏览器后退、退出后受保护接口不可访问。</li>
+</ul>
+
+<h2 seq="auto">手机短信验证码（本站未开启）</h2>
+<ul>
+<li>发送：<code>GET /index.php/home/Connectsms/get_captcha.html</code>，参数 type（1注册/2登录/3找回）、sms_mobile（11位）。</li>
+<li>校验：<code>GET /index.php/home/Connectsms/check_captcha.html</code>，参数 sms_mobile、sms_captcha，返回 true/false。</li>
+<li>找回密码：<code>POST /index.php/home/connectsms/find_password.html</code>，参数 sms_mobile、sms_captcha、member_password。</li>
+<li><b>实测</b>：本站短信功能全部关闭，type=1/2/3 分别返回“系统没有开启手机注册/登录/找回密码功能”。相关用例需后台开启短信网关后验证。</li>
+</ul>
+
+<h1 seq="auto">基础数据链路（地区 / 收货地址）</h1>
+
+<h2 seq="auto">地区级联数据（省/市/区）</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Index/json_area.html?src=cache&amp;callback=cb</code>　|　<b>鉴权</b>：否（JSONP，必带 callback，否则 500）</p>
+<pre lang="json"><code>cb({"0":[[1,"北京"],[19,"广东"],[22,"重庆"]...],
+    "19":[[199,"广州"],[305,"东莞"]...],
+    "305":[[3144,"东莞市"]...]})</code></pre>
+<ul>
+<li>key 为父级 area_id（"0"=省级列表），value 为 <code>[area_id, 名称]</code> 数组；一次性下发全量（约 126KB），前端本地级联。</li>
+<li>回显接口：<code>GET /index.php/home/Index/json_area_show?area_id={id}&amp;callback=cb</code> → <code>cb({"text":" 东莞市"})</code>。</li>
+<li>用例要点：area_id 越界/非数字/注入、自定义回调名、全量数据完整性、缓存头。</li>
+</ul>
+
+<h2 seq="auto">收货地址 - 新增</h2>
+<p>列表页：<code>GET /index.php/home/memberaddress/index/o2o_errand_type/0.html</code>（0=收货地址，1=跑腿发件地址）。</p>
+<p>表单页：<code>GET /index.php/home/memberaddress/add/o2o_errand_type/0.html</code>　<b>提交</b>：<code>POST</code> 同一 URL　|　<b>鉴权</b>：是</p>
+<table>
+<colgroup><col width="150"/><col width="100"/><col width="90"/><col width="480"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>true_name</p></td><td><p>string</p></td><td><p>是</p></td><td><p>收货人姓名</p></td></tr>
+<tr><td><p>city_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>城市 ID（重庆市=62）</p></td></tr>
+<tr><td><p>area_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>末级区县 ID（南岸区=352），需选到最后一级；<b>无 province_id 字段</b></p></td></tr>
+<tr><td><p>area_info</p></td><td><p>string</p></td><td><p>是</p></td><td><p>地区全称，如“重庆 重庆市 南岸区”</p></td></tr>
+<tr><td><p>address</p></td><td><p>string</p></td><td><p>是</p></td><td><p>详细地址</p></td></tr>
+<tr><td><p>mob_phone</p></td><td><p>string</p></td><td><p>是</p></td><td><p>手机号（11 位）；tel_phone 座机可选</p></td></tr>
+<tr><td><p>is_default</p></td><td><p>int</p></td><td><p>否</p></td><td><p>checkbox=1 设为默认</p></td></tr>
+<tr><td><p>longitude / latitude</p></td><td><p>decimal</p></td><td><p>是</p></td><td><p>经纬度（百度地图选点），配送范围/距离判定用</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：<code>{"code":10000,"message":"保存成功","result":{"address_id":"58"}}</code></p>
+<p><b>用例要点</b>：未选到区、手机号格式、经纬度缺失对配送范围影响、设默认后原默认是否取消、地址上限、特殊字符。</p>
+
+<h2 seq="auto">收货地址 - 编辑 / 删除</h2>
+<ul>
+<li>编辑回填：<code>GET /index.php/home/memberaddress/edit/address_id/{id}.html</code>；提交：<code>POST</code> 同一 URL，Body 同新增。</li>
+<li>删除：<code>GET /index.php/home/memberaddress/drop/address_id/{id}.html</code>（前端 ds_ajaxget_confirm 弹“您确定要删除吗?”），成功 <code>{"code":10000,"message":"删除成功","result":""}</code>。</li>
+<li><b>核心安全用例</b>：越权改/删他人 address_id、重复删除、删除默认地址后默认归属、删除被订单引用的地址、id 篡改。</li>
+</ul>
+<h1 seq="auto">外卖浏览与交易链路</h1>
+
+<h2 seq="auto">定位（前端 + Cookie）</h2>
+<ul>
+<li>使用百度地图 JS API（ak=QMCCTcIV28j9WXXk4YIUDOuYHCgzMNnE）做定位、逆地址、地图选点；选定坐标写入 Cookie：longitude、latitude、pos_city、pos_district。</li>
+<li>用例要点：拒绝定位、经纬度为空/越界（&gt;180 / &gt;90）、境外坐标、Cookie 篡改、切换城市。该 ak 在入驻页会弹“密钥无效” alert 并冻结页面 JS。</li>
+</ul>
+
+<h2 seq="auto">附近商家列表</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Shopnearby/get_Own_Store_List</code>　|　<b>鉴权</b>：否</p>
+<table>
+<colgroup><col width="160"/><col width="110"/><col width="90"/><col width="460"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>longitude</p></td><td><p>decimal</p></td><td><p>是</p></td><td><p>定位经度</p></td></tr>
+<tr><td><p>latitude</p></td><td><p>decimal</p></td><td><p>是</p></td><td><p>定位纬度</p></td></tr>
+<tr><td><p>storeclass_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>店铺分类 ID，0=全部</p></td></tr>
+<tr><td><p>page</p></td><td><p>int</p></td><td><p>否</p></td><td><p>滚动分页页码</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>（JSON 数组，注意无 code 外层，按距离排序）：</p>
+<pre lang="json"><code>[{"store_id":15,"store_name":"O2O南岸测试餐厅","is_platform_store":0,
+  "store_longitude":"106.559476","store_latitude":"29.556933",
+  "area_info":"重庆 重庆市 南岸区","store_address":"...","distance":0,
+  "store_logo":"http://.../default_store_logo.jpg","goods_list":[...]}]</code></pre>
+<p><b>用例要点</b>：经纬度边界、分页越界、分类不存在、空结果、距离排序、下架/歇业/到期店铺是否过滤。</p>
+
+<h2 seq="auto">店铺与商品详情</h2>
+<ul>
+<li>店铺详情（服务端渲染）：<code>GET /index.php/home/Store/index/store_id/{id}.html</code>，展示起送价、配送费、营业时间、评分、店内分类；全部商品 <code>GET /home/store/goods_all/store_id/{id}.html</code>。</li>
+<li>商品详情：<code>GET /index.php/home/goods/index/goods_id/{id}.html</code>。</li>
+<li>多规格 SKU：<code>GET /home/goods/getspeclist.html?goods_commonid={commonid}</code> → <code>{"code":10000,"result":{...}}</code>。</li>
+<li>销售记录 / 咨询片段：<code>/home/goods/salelog/goods_id/{id}/store_id/{sid}.html</code>、<code>/home/goods/consulting/...</code>（HTML 片段）。</li>
+<li>用例要点：不存在/关闭/到期店铺、营业时段外能否下单、goods_id 非法/下架/删除、库存为 0、多规格切换价格与 SKU、价格库存一致性。</li>
+</ul>
+
+<h2 seq="auto">加入购物车</h2>
+<p><b>URL</b>：<code>POST /index.php/home/cart/add.html</code>　|　<b>鉴权</b>：是　|　<b>Content-Type</b>：application/x-www-form-urlencoded</p>
+<table>
+<colgroup><col width="150"/><col width="100"/><col width="90"/><col width="480"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>goods_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>商品 ID（多规格为具体规格 SKU 的 goods_id）</p></td></tr>
+<tr><td><p>quantity</p></td><td><p>int</p></td><td><p>是</p></td><td><p>本次加入数量</p></td></tr>
+<tr><td><p>store_id</p></td><td><p>int</p></td><td><p>是</p></td><td><p>店铺 ID</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：</p>
+<pre lang="json"><code>成功：     {"state":"true","num":1,"amount":"25.00"}
+重复加购： {"state":"false"}
+店主买本店：{"msg":"不能购买自己店铺的商品"}</code></pre>
+<p><b>用例要点</b>：未登录加购、数量&gt;库存、负数/0/超大数量、跨店购物车、店主买本店、规格 goods_id 混淆、并发加购库存扣减。</p>
+
+<h2 seq="auto">购物车查询 / 修改 / 删除</h2>
+<ul>
+<li>店铺购物车（必带 store_id，否则返回 HTML 页面）：<code>GET /index.php/home/store/getcartlist.html?store_id={sid}</code></li>
+</ul>
+<pre lang="json"><code>{"code":10000,"result":{"cart_list":[{"cart_id":91,"buyer_id":161,
+ "store_id":15,"store_name":"O2O南岸测试餐厅","goods_id":79,
+ "goods_name":"测试-招牌黄焖鸡米饭","goods_price":"25.00","goods_num":1,
+ "goods_image":null}],"cart_amount":25}}</code></pre>
+<ul>
+<li>删除项：<code>GET /index.php/home/Cart/del.html?cart_id={cart_id}</code> → <code>{"state":"true","quantity":0,"amount":"0.00"}</code>（quantity/amount 为删除后剩余值）。</li>
+<li>右侧购物车 HTML：<code>GET /home/cart/ajax_load/type/html.html</code>；改数量复用 cart/add（quantity 为新总数）。</li>
+<li>用例要点：删除后金额/数量回算、跨店金额合计、越权操作他人 cart_id。</li>
+</ul>
+
+<h2 seq="auto">结算第一步（确认订单页）</h2>
+<p><b>URL</b>：<code>POST /index.php/home/buy/buy_step1.html</code>　|　<b>鉴权</b>：是（未登录跳登录并带 ref_url）</p>
+<table>
+<colgroup><col width="160"/><col width="100"/><col width="90"/><col width="470"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>类型</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>ifcart</p></td><td><p>int</p></td><td><p>是</p></td><td><p>1=来自购物车；立即购买为 0</p></td></tr>
+<tr><td><p>cart_id[]</p></td><td><p>string</p></td><td><p>是</p></td><td><p>值格式为「购物车ID|数量」，如 <code>91|1</code>；立即购买为「goods_id|数量」。<b>只传 91 不带 |1 会报“所购商品无效”</b>，可多店多条</p></td></tr>
+</tbody>
+</table>
+<p><b>拦截规则</b>（dispatch_jump 错误页，实测）：商品下架/不存在→“商品已下架或不存在”；店铺未开启配送→“店铺[xxx]不支持配送”。</p>
+<p>结算页返回 HTML，内含表单 <code>#order_form</code>（action=buy_step2.html），并加载：地址列表 <code>GET /home/Buy/load_addr.html</code>、配送距离校验、发票 <code>/home/Buy/load_inv.html</code> 等片段；页面固定在线支付（pay_name hidden=online），展示商品金额、配送费（店铺15 为 2 元）、起送价、营业时间。</p>
+
+<h2 seq="auto">配送距离校验（关键业务规则）</h2>
+<p><b>URL</b>：<code>GET /index.php/home/Buy/calc_distance.html?store_ids={店铺id}&amp;addr_id={地址id}</code>　|　<b>鉴权</b>：是</p>
+<pre lang="json"><code>可配送：{"state":true,"msg":"","data":[]}
+超范围：{"state":false,"msg":"您的地址12440933m超出绿叶水果的配送距离100m","data":[]}</code></pre>
+<p>规则：按店铺与收货地址经纬度算直线距离，与店铺“配送距离”比较，前端据此置 ALLOW_ADDRESS 拦截提交。</p>
+<p><b>用例要点</b>：恰好等于配送距离、超 1 米、店铺无坐标、地址无经纬度、多店铺部分超范围、篡改 addr_id、伪造距离。</p>
+
+<h2 seq="auto">提交订单（第二步）</h2>
+<p><b>URL</b>：<code>POST /index.php/home/buy/buy_step2.html</code>（表单 #order_form）　|　<b>鉴权</b>：是　|　<b>Content-Type</b>：form-urlencoded</p>
+<table>
+<colgroup><col width="180"/><col width="640"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>字段</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>cart_id[]</p></td><td><p><code>购物车ID|数量</code>（购物车）或 <code>goods_id|数量</code>（立即购买），可多店多条</p></td></tr>
+<tr><td><p>address_id</p></td><td><p>选中的收货地址 ID（必填，前端校验非空）；使用新地址时改传 true_name/city_id/area_id/area_info/address/longitude/latitude/mob_phone 等</p></td></tr>
+<tr><td><p>pay_message[{store_id}]</p></td><td><p>按店铺留言，下标为 store_id，如 <code>pay_message[15]</code></p></td></tr>
+<tr><td><p>order_from</p></td><td><p>订单来源，PC=1（外卖）</p></td></tr>
+<tr><td><p>ifcart</p></td><td><p>是否来自购物车（1）</p></td></tr>
+<tr><td><p>pay_name</p></td><td><p>支付方式，结算页固定 hidden 值 <code>online</code>（在线支付），无支付方式选择</p></td></tr>
+<tr><td><p>vat_hash</p></td><td><p><b>防重令牌</b>，每次结算页变化、一次性；必须先用 buy_step1 换取</p></td></tr>
+<tr><td><p>buy_city_id / invoice_id</p></td><td><p>城市 ID（可空）、发票 ID（可选，空）</p></td></tr>
+<tr><td><p>pd_pay / rcb_pay</p></td><td><p>预存款/充值卡支付勾选，勾选需校验支付密码（本链路未用）</p></td></tr>
+</tbody>
+</table>
+<p><b>实测请求体</b>（店铺15 / 商品79 / 地址58）：</p>
+<pre lang="text"><code>POST /index.php/home/buy/buy_step2.html
+Content-Type: application/x-www-form-urlencoded
+Cookie: 登录会话
+
+cart_id[]=91|1&pay_message[15]=测试订单&order_from=1&ifcart=1&
+pay_name=online&vat_hash=JRe6M7gzEK4hGdR-ZlzWzbXWGf&
+address_id=58&buy_city_id=&invoice_id=</code></pre>
+<callout emoji="⚠️" background-color="light-red" border-color="red"><p><b>当前测试环境阻断，无法取得成功响应（真实抓包，非臆造）</b></p><p>上述请求返回 HTTP 200 的 dispatch_jump 错误页：<code>SQLSTATE[HY000]: General error: 1364 Field 'o2o_distributor_realname' doesn't have a default value</code>。</p><p>成功态本应返回 JSON（含订单号 pay_sn/order_sn 与支付跳转 URL），但本环境必现失败，故成功 JSON 与支付页 URL 无法真实取得，待环境修复后按此请求体回归抓取。重复提交同一 vat_hash 返回“您已经下过单了”；失败请求还会清空对应购物车项但不生成订单（数据一致性缺陷）。</p></callout>
+<h1 seq="auto">商家端：入驻 / 商品 / 配送</h1>
+
+<h2 seq="auto">个人商家入驻（C2C，4 步向导）</h2>
+<p>入口（个人入驻）：<code>GET /index.php/home/Sellerjoininc2c/step1.html</code>（企业入驻为 sellerjoinin）。各步以 POST 提交到下一 step。</p>
+<p><b>Step1 店铺资质</b> → <code>POST /home/sellerjoininc2c/step2.html</code>：</p>
+<table>
+<colgroup><col width="260"/><col width="80"/><col width="480"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>company_name</p></td><td><p>是</p></td><td><p>店铺/主体名称</p></td></tr>
+<tr><td><p>province_id / city_id / district_id</p></td><td><p>是</p></td><td><p>地区 ID（重庆 22 / 重庆市 62 / 南岸区 352）</p></td></tr>
+<tr><td><p>company_address / company_address_detail</p></td><td><p>是</p></td><td><p>地区与详细地址</p></td></tr>
+<tr><td><p>longitude / latitude</p></td><td><p>是</p></td><td><p><b>坐标随此步写入，之后商家端无坐标编辑入口</b></p></td></tr>
+<tr><td><p>contacts_name / contacts_phone / contacts_email</p></td><td><p>是</p></td><td><p>联系人/手机/邮箱</p></td></tr>
+<tr><td><p>business_licence_number</p></td><td><p>是</p></td><td><p><b>个人入驻也强制必填</b>，18 位统一社会信用代码（测试用 91500108MA5TEST001）</p></td></tr>
+<tr><td><p>business_licence_address / business_licence_start / business_licence_end</p></td><td><p>是</p></td><td><p>执照地址/有效期（YYYY-MM-DD）</p></td></tr>
+<tr><td><p>business_sphere</p></td><td><p>否</p></td><td><p>经营范围</p></td></tr>
+</tbody>
+</table>
+<p><b>Step2 财务资质</b> → <code>POST /home/sellerjoininc2c/step3.html</code>：settlement_bank_account_name（开户名）、settlement_bank_account_number（银行账号）。</p>
+<p><b>Step3 店铺经营信息</b> → <code>POST /home/sellerjoininc2c/step4.html</code>：</p>
+<table>
+<colgroup><col width="200"/><col width="620"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>seller_name</p></td><td><p>卖家登录账号（如 testojoins）</p></td></tr>
+<tr><td><p>store_name</p></td><td><p>店铺名称（如 O2O南岸测试餐厅）</p></td></tr>
+<tr><td><p>storegrade_id</p></td><td><p>店铺等级：1 系统默认 / 2 白金 / 3 钻石</p></td></tr>
+<tr><td><p>joinin_year</p></td><td><p>入驻年限：1 / 2</p></td></tr>
+<tr><td><p>storeclass_id</p></td><td><p>店铺分类：1 蛋糕甜点/2 自助餐/3 小吃快餐/4 火锅/5 西餐/6 麻辣烫/7 水果生鲜/8 果汁饮品（括号内为保证金，多为 0）</p></td></tr>
+<tr><td><p>store_class</p></td><td><p>经营类目末级 gc_id（隐藏域），水果生鲜=7（无下级即末级）</p></td></tr>
+</tbody>
+</table>
+<p><b>返回</b>：提交后提示“入驻申请已经提交，请等待管理员审核”（保证金 0 时无缴费步骤）；必填缺失返回 dispatch_jump 错误页。</p>
+<p><b>用例要点</b>：必填缺失、执照号格式/长度、坐标缺失、店铺名/卖家账号重复、类目未选到末级、保证金类目、重复入驻。</p>
+
+<h2 seq="auto">平台后台审核开店</h2>
+<ul>
+<li>申请列表：<code>GET /index.php/admin/store/store_joinin.html</code>；审核详情：<code>GET /index.php/admin/store/store_joinin_detail.html?member_id={入驻会员id}</code>。</li>
+<li>提交审核：<code>POST /index.php/admin/store/store_joinin_verify.html</code>（form #form_store_verify）。</li>
+</ul>
+<table>
+<colgroup><col width="200"/><col width="620"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>verify_type</p></td><td><p><code>pass</code> 通过 / <code>fail</code> 拒绝（非 1/0）</p></td></tr>
+<tr><td><p>member_id</p></td><td><p>入驻会员 ID（testojoin=163）</p></td></tr>
+<tr><td><p>paying_amount</p></td><td><p>缴费/保证金金额（保证金 0 类目传 0）</p></td></tr>
+<tr><td><p>joinin_message</p></td><td><p>审核意见</p></td></tr>
+</tbody>
+</table>
+<p><b>返回示例</b>：通过返回 <code>&lt;script&gt;parent.layer.alert('店铺开店成功',...)&lt;/script&gt;</code>，店铺有效期默认 +1 年。通过前校验经营类目分佣比例 commis_rate（0–100）。</p>
+<ul>
+<li>经营类目绑定（后台代绑）：列表 <code>GET /admin/store/store_bind_class.html?store_id={id}</code>；新增 <code>POST /admin/store/store_bind_class_add.html</code>，Body：store_id、goods_class(gc_id，如 7)、commis_rate(0–100 整数)。<b>入驻后商品分类接口返回空，须先绑定类目，商家才能发布该类目商品。</b></li>
+<li>清缓存：<code>GET /index.php/admin/index/clear.html</code> → <code>{"code":10000,...}</code>。</li>
+<li>用例要点：重复审核、拒绝后能否重申、分佣比例边界（0/100/101/空/负数）、审核通过后店铺状态/有效期。</li>
+</ul>
+
+<h2 seq="auto">商家商品发布</h2>
+<ul>
+<li>向导：STEP1 选分类 → STEP2 填详情 → STEP3 传图 → STEP4 成功。</li>
+<li>分类逐级加载：<code>GET /home/Sellergoodsadd/ajax_goods_class.html?gc_id={父id}&amp;deep={层级}</code>，返回子分类数组，末级返回 []；未绑定经营类目时返回 []。</li>
+<li>可绕过分类直接进详情页：<code>GET /home/sellergoodsadd/add_step_two.html?class_id={末级gc_id}</code>（实测 class_id=7 直接出表单）。</li>
+</ul>
+<p><b>保存商品</b>：<code>POST /index.php/home/sellergoodsadd/save_goods.html</code>（form-urlencoded；图片非第二步必填），主要字段：</p>
+<table>
+<colgroup><col width="190"/><col width="70"/><col width="560"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>commonid</p></td><td><p>否</p></td><td><p>空=新增；编辑传商品公共 ID</p></td></tr>
+<tr><td><p>type_id</p></td><td><p>是</p></td><td><p>商品类型，无则 0</p></td></tr>
+<tr><td><p>cate_id / cate_name</p></td><td><p>是</p></td><td><p>末级分类 ID/名（隐藏域，7 / 水果生鲜）</p></td></tr>
+<tr><td><p>g_name</p></td><td><p>是</p></td><td><p>商品名称</p></td></tr>
+<tr><td><p>g_price</p></td><td><p>是</p></td><td><p>售价（25.00）</p></td></tr>
+<tr><td><p>g_marketprice / g_costprice</p></td><td><p>否</p></td><td><p>市场价 / 成本价</p></td></tr>
+<tr><td><p>g_storage</p></td><td><p>是</p></td><td><p>库存</p></td></tr>
+<tr><td><p>g_alarm / g_serial / g_jingle</p></td><td><p>否</p></td><td><p>库存预警 / 货号 / 广告词</p></td></tr>
+<tr><td><p>goods_body / m_body</p></td><td><p>否</p></td><td><p>PC / 移动端详情富文本</p></td></tr>
+<tr><td><p>image_path / goods_image</p></td><td><p>否</p></td><td><p>图片路径 / 上传文件（第三步可补）</p></td></tr>
+<tr><td><p>sgcate_id[]</p></td><td><p>否</p></td><td><p>店内分类 ID，0=不选</p></td></tr>
+<tr><td><p>g_state</p></td><td><p>是</p></td><td><p>1=立即出售（上架），0=放入仓库</p></td></tr>
+<tr><td><p>g_vat / g_commend</p></td><td><p>否</p></td><td><p>增值税发票 / 推荐，0/1</p></td></tr>
+</tbody>
+</table>
+<p><b>返回</b>：成功跳转 <code>add_step_three/commonid/{commonid}.html</code>（实测 commonid=79，单规格 goods_id=commonid）。g_state=1 上架<b>无需平台审核</b>，立即在出售中列表、店铺页、附近商家 goods_list 可见。商品管理：出售中 <code>/home/sellergoodsonline/index.html</code>、仓库中 <code>/home/sellergoodsoffline/index.html</code>。</p>
+<p><b>用例要点</b>：价格负数/0/超大、库存负数/非数字、必填缺失、上下架对买家可见性、商品名长度/特殊字符、多规格 SKU、改价后购物车/结算金额。</p>
+
+<h2 seq="auto">店铺外卖配送设置</h2>
+<p><b>URL</b>：<code>GET|POST /index.php/home/seller_o2o/index.html</code>（POST 返回 <code>{"code":10000,"message":"保存成功"}</code>），主要字段：</p>
+<table>
+<colgroup><col width="250"/><col width="570"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>store_o2o_receipt</p></td><td><p>是否接单：1 是 / 0 否</p></td></tr>
+<tr><td><p>store_o2o_distribute_type</p></td><td><p>配送方式：1=店铺自配送（本环境仅渲染此项，平台配送需后台开通且有覆盖区域的平台配送员）</p></td></tr>
+<tr><td><p>store_o2o_auto_receipt / store_o2o_auto_deliver</p></td><td><p>自动接单 / 自动派单 1/0</p></td></tr>
+<tr><td><p>store_o2o_open_time</p></td><td><p>营业时间段（分钟），如 <code>480,1080</code>=08:00-18:00</p></td></tr>
+<tr><td><p>store_o2o_distance</p></td><td><p>配送距离（米），如 5000</p></td></tr>
+<tr><td><p>store_o2o_fee</p></td><td><p>配送费（元），如 2.00</p></td></tr>
+<tr><td><p>store_o2o_min_cost</p></td><td><p>起送价</p></td></tr>
+<tr><td><p>store_o2o_complaint_fine / receipt_limit / reject_time</p></td><td><p>投诉罚款 / 接单上限 / 拒单时长</p></td></tr>
+</tbody>
+</table>
+<p>注：store_o2o_open（外卖总开关）单选在页面被模板注释、固定不可编辑。用例要点：配送距离 0/负数/超大、配送费边界、营业时间跨天/颠倒、歇业时能否下单、起送价校验。</p>
+
+<h2 seq="auto">配送员管理</h2>
+<ul>
+<li>商家配送员列表：<code>GET /home/seller_o2o_distributor/index.html</code>；新增：<code>GET|POST /home/seller_o2o_distributor/add.html</code>，字段 o2o_distributor_name、password、realname、phone、email、remark、introduce、o2o_distributor_state（1/0，默认 1）、头像。<b>该新增接口本环境有缺陷（见缺陷章节 BUG-2）。</b></li>
+<li>平台配送员列表：<code>GET /index.php/admin/o2o_distributor/index.html</code>（?verify=1 待审核）；新增 <code>POST /index.php/admin/o2o_distributor/add.html</code>（成功 layer.alert“保存成功”）；编辑 <code>/admin/o2o_distributor/edit.html?id={id}</code>。字段同商家端，另有 o2o_distributor_region_id/region_name（配送地区）、o2o_distributor_errand_deposit（跑腿押金，默认 500）、store_id（传则为指定店铺建，不传=平台级 0）、state 默认 1。</li>
+<li>平台配送设置：<code>GET|POST /index.php/admin/o2o/setting.html</code>（o2o_socket_url、o2o_distance、o2o_auto_distribute、o2o_fee、o2o_complaint_fine）。</li>
+<li>用例要点：配送员账号重复、手机号格式、启停后派单、配送地区与订单区域匹配、押金边界。</li>
+</ul>
+
+<h1 seq="auto">订单流转接口（路由与错误态已实测）</h1>
+<callout emoji="⚠️" background-color="light-yellow" border-color="yellow"><p>因下单接口被环境缺陷阻断（见末章 BUG-1），当前无真实订单，下列接口的<b>成功响应无法取得，未做臆造</b>；已确证 URL、请求方式、鉴权、关键参数与“订单不存在/参数为空”的真实错误返回。待环境修复产生真实订单后，可直接据此回归补全成功态。</p></callout>
+
+<h2 seq="auto">买家订单查询与操作</h2>
+<table>
+<colgroup><col width="150"/><col width="380"/><col width="290"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>功能</p></th><th background-color="light-gray"><p>URL / 方式 / 鉴权</p></th><th background-color="light-gray"><p>实测返回 / 参数</p></th></tr></thead>
+<tbody>
+<tr><td><p>订单列表（按状态 Tab）</p></td><td><p><code>GET /home/memberorder/index/state_type/{state}.html</code>，鉴权：是</p></td><td><p>state：state_new 待付款 / state_pay 待接单 / state_send 待收货 / state_success 已完成 / state_noeval 待评价 / state_cancel 已取消；回收站 <code>/index/recycle/1.html</code>。空结果返回无订单行页面</p></td></tr>
+<tr><td><p>订单详情</p></td><td><p><code>GET /home/memberorder/show_order/order_id/{id}.html</code></p></td><td><p>不存在订单：dispatch_jump“该订单不存在”</p></td></tr>
+<tr><td><p>状态变更（取消/确认收货统一入口）</p></td><td><p><code>GET|POST /home/memberorder/change_state.html</code></p></td><td><p>参数 order_id + 目标状态；无订单时返回空 200，确切状态键需真实订单确认</p></td></tr>
+<tr><td><p>我的评价</p></td><td><p><code>GET /home/memberevaluate/index.html</code></p></td><td><p>提交表单需进入真实订单，当前未取得</p></td></tr>
+<tr><td><p>退款/售后</p></td><td><p><code>GET /home/memberrefund/index.html</code></p></td><td><p>提交表单需进入真实订单，当前未取得</p></td></tr>
+</tbody>
+</table>
+<p><b>用例要点</b>：越权查看/操作他人 order_id（核心安全）、状态机非法跃迁（如未付款直接确认收货）、重复取消/重复确认、取消后库存与优惠券回滚、回收站还原。</p>
+
+<h2 seq="auto">商家订单处理</h2>
+<table>
+<colgroup><col width="150"/><col width="380"/><col width="290"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>功能</p></th><th background-color="light-gray"><p>URL / 方式 / 鉴权</p></th><th background-color="light-gray"><p>实测返回 / 参数</p></th></tr></thead>
+<tbody>
+<tr><td><p>订单列表（按状态）</p></td><td><p><code>GET /home/sellerorder/index/state_type/{state}.html</code>，鉴权：卖家</p></td><td><p>state：state_new / state_pay 待接单 / state_pick 待备货取货 / state_send 配送中 / state_success / state_cancel</p></td></tr>
+<tr><td><p>订单详情</p></td><td><p><code>GET /home/sellerorder/show_order/order_id/{id}.html</code></p></td><td><p>不存在→“该订单不存在”</p></td></tr>
+<tr><td><p>商家接单</p></td><td><p><code>GET|POST /home/sellerorder/receipt_order.html</code>，参数 order_id</p></td><td><p>实测 <code>{"code":10001,"message":"该订单不存在","result":""}</code></p></td></tr>
+<tr><td><p>商家拒单</p></td><td><p><code>/home/sellerorder/reject_order.html</code></p></td><td><p>order_id + 拒单原因（字段待真实订单确认）</p></td></tr>
+<tr><td><p>自提核销码校验</p></td><td><p><code>GET /home/sellerorder/check_o2o_order_pickup_code.html</code>，参数取货码</p></td><td><p>空参实测 <code>{"code":10001,"message":"取货码不能为空","result":""}</code></p></td></tr>
+<tr><td><p>商家评价 / 结算</p></td><td><p><code>/home/sellerevaluate/index.html</code>、<code>/home/sellerbill/index.html</code></p></td><td><p>路由已确证</p></td></tr>
+</tbody>
+</table>
+<p><b>用例要点</b>：重复接单、拒单后退款/库存回滚、接单状态机、核销码错误/已使用、并发接单、越权操作他店订单。</p>
+
+<h2 seq="auto">平台后台交易管理（路由）</h2>
+<ul>
+<li>订单管理：<code>GET /index.php/admin/Order/index.html</code>；退款管理：<code>/index.php/admin/Refund/refund_manage.html</code>；评价管理：<code>/index.php/admin/Evaluate/evalgoods_list.html</code>；订单结算：<code>/index.php/admin/Bill/show_statis.html</code>。</li>
+<li>用例要点：后台代客退款金额校验、强制关闭订单、评价审核/删除、跨店订单与配送员分账。</li>
+</ul>
+
+<h1 seq="auto">跑腿 / 服务链路</h1>
+<h2 seq="auto">跑腿（帮买/帮送）发单</h2>
+<p>发单页：<code>GET /home/member_o2o_errand_order/send.html</code>（form id=member_o2o_errand_form）；提交：<code>POST /home/member_o2o_errand_order/add.html</code>，鉴权：是。</p>
+<table>
+<colgroup><col width="320"/><col width="80"/><col width="420"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>参数</p></th><th background-color="light-gray"><p>必填</p></th><th background-color="light-gray"><p>说明</p></th></tr></thead>
+<tbody>
+<tr><td><p>o2o_errand_order_type</p></td><td><p>是</p></td><td><p>订单类型（默认 1 帮送，帮买等以页面为准）</p></td></tr>
+<tr><td><p>o2o_errand_order_pickup_region_id</p></td><td><p>是</p></td><td><p>取件地区末级 area_id（南岸区=352）</p></td></tr>
+<tr><td><p>o2o_errand_order_pickup_lng / _lat</p></td><td><p>是</p></td><td><p>取件经纬度</p></td></tr>
+<tr><td><p>o2o_errand_order_pickup_address / _name / _phone</p></td><td><p>是</p></td><td><p>取件详细地址 / 姓名 / 手机</p></td></tr>
+<tr><td><p>o2o_errand_order_deliver_region_id</p></td><td><p>是</p></td><td><p>送达地区末级 area_id</p></td></tr>
+<tr><td><p>o2o_errand_order_deliver_lng / _lat</p></td><td><p>是</p></td><td><p>送达经纬度</p></td></tr>
+<tr><td><p>o2o_errand_order_deliver_address / _name / _phone</p></td><td><p>是</p></td><td><p>送达详细地址 / 姓名 / 手机</p></td></tr>
+<tr><td><p>o2o_errand_order_detail</p></td><td><p>是</p></td><td><p>物品类型（文件/餐饮/药品等）</p></td></tr>
+<tr><td><p>o2o_errand_order_weight</p></td><td><p>否</p></td><td><p>重量 kg</p></td></tr>
+<tr><td><p>o2o_errand_order_goods_price</p></td><td><p>否</p></td><td><p>物品价值（快捷 50/100/500）</p></td></tr>
+<tr><td><p>o2o_errand_order_appointment_time</p></td><td><p>否</p></td><td><p>预约时间</p></td></tr>
+<tr><td><p>o2o_errand_order_check_receive</p></td><td><p>否</p></td><td><p>勾选（保密配送等）</p></td></tr>
+<tr><td><p>o2o_errand_order_gratuity / _remark</p></td><td><p>否</p></td><td><p>小费 / 备注</p></td></tr>
+</tbody>
+</table>
+<callout emoji="⚠️" background-color="light-red" border-color="red"><p><b>实测同样被阻断</b>：返回 ThinkPHP System Error 调试页，核心异常 <code>SQLSTATE[HY000]: General error: 1364 Field 'o2o_distributor_id' doesn't have a default value</code>（7 queries, 1 write）。跑腿费由距离/重量/时段试算、服务端重算。跑腿订单列表：<code>GET /home/member_o2o_errand_order/index.html</code>。</p></callout>
+<h2 seq="auto">服务（家政等到店/上门）</h2>
+<p>入口 <code>GET /home/fuwu/index.html</code>；服务订单列表 <code>GET /home/member_o2o_fuwu_order/index.html</code>。本环境服务商家/商品未配置，正向下单未实测，字段与表结构待环境具备后补抓（不臆造）。</p>
+
+<h1 seq="auto">阻断性缺陷汇总（本次接口测试关键发现）</h1>
+<h2 seq="auto">BUG-1 配送类订单创建必失败（严重，阻断核心交易）</h2>
+<table>
+<colgroup><col width="130"/><col width="690"/></colgroup>
+<tbody>
+<tr><td background-color="light-gray"><p><b>现象</b></p></td><td><p>外卖 buy_step2 → <code>1364 Field 'o2o_distributor_realname' doesn't have a default value</code>；跑腿 errand/add → <code>1364 Field 'o2o_distributor_id' doesn't have a default value</code>。</p></td></tr>
+<tr><td background-color="light-gray"><p><b>根因</b></p></td><td><p>MySQL 严格模式 + 订单扩展表配送员字段 NOT NULL 无默认值 + 下单 INSERT 未赋值（配送员本应在商家接单/派单阶段才确定）。</p></td></tr>
+<tr><td background-color="light-gray"><p><b>已排除（均无效）</b></p></td><td><p>店铺自配送/平台配送切换、自动派单开关、平台配送员存在与否、后台为店铺建配送员、客户端补传配送员字段（服务端不读）。</p></td></tr>
+<tr><td background-color="light-gray"><p><b>影响</b></p></td><td><p>无法生成任何外卖/跑腿订单，支付、订单流转、评价、退款、接单、派单等下游正向用例全部无法执行；失败请求还清空购物车项（数据一致性 BUG）。</p></td></tr>
+<tr><td background-color="light-gray"><p><b>复现</b></p></td><td><p>买家登录 → 店铺15 加购商品79 → POST buy_step1 取 vat_hash → POST buy_step2（请求体见“提交订单”节）→ 必现。</p></td></tr>
+<tr><td background-color="light-gray"><p><b>修复建议</b></p></td><td><p>①给 order_o2o/errand 表配送员字段设默认值或允许 NULL；②或关闭该连接严格模式；③或下单 INSERT 显式写入空配送员值；④失败时回滚购物车，避免误清空。（测试侧不改库）</p></td></tr>
+</tbody>
+</table>
+<h2 seq="auto">BUG-2 商家端配送员新增必失败（中）</h2>
+<p><code>POST /home/seller_o2o_distributor/add.html</code> 无论 GET/POST、urlencoded/multipart、state 传 0/1/数组、放 query 或 body、官方 ds_ajaxpost 序列化（XHR 抓包确认请求体含 o2o_distributor_state=1），均返回 <code>{"code":10001,"message":"请选择状态","result":""}</code>。商家无法在商家端维护配送员，当前只能由后台 admin/o2o_distributor/add 代建。建议核对服务端字段名与前端 name 是否一致。</p>
+<h2 seq="auto">其他环境注意点</h2>
+<ul>
+<li>入驻页百度地图 ak 无效，弹 alert 冻结页面（测试可直接传经纬度字段）。</li>
+<li>个人入驻强制 18 位营业执照号（需确认是否符合个人入驻产品预期）。</li>
+<li>卖家设置页“平台配送/外卖总开关”单选被模板注释，仅店铺自配送可选。</li>
+<li>商家端无坐标编辑入口，坐标只能在入驻 Step1 写入（店铺3 因此坐标为空、无法下单）。</li>
+</ul>
+
+<h1 seq="auto">测试用例设计建议</h1>
+<table>
+<colgroup><col width="150"/><col width="670"/></colgroup>
+<thead><tr><th background-color="light-gray"><p>维度</p></th><th background-color="light-gray"><p>要点</p></th></tr></thead>
+<tbody>
+<tr><td><p>鉴权/越权</p></td><td><p>未登录、买家/卖家/后台三类会话越权（改 order_id/address_id/store_id 访问他人数据）、会话过期、退出后回退</p></td></tr>
+<tr><td><p>参数校验</p></td><td><p>必填缺失、类型错误、长度边界、枚举越界、负数/0/超大金额与数量、特殊字符与 SQL/XSS 注入位</p></td></tr>
+<tr><td><p>业务规则</p></td><td><p>配送距离边界（等于/超 1 米/无坐标）、起送价、营业时间、库存扣减、地址选到末级区县、经纬度合法性</p></td></tr>
+<tr><td><p>幂等防重</p></td><td><p>vat_hash 一次性、重复提交 buy_step2、重复接单/取消/确认收货、刷新重放</p></td></tr>
+<tr><td><p>状态机</p></td><td><p>订单 state_new→pay→send→success→eval 的合法/非法跃迁，取消/退款在各状态是否允许</p></td></tr>
+<tr><td><p>数据一致性</p></td><td><p>下单失败回滚（当前 BUG）、取消后库存/优惠券/购物车回滚、金额服务端重算与前端一致</p></td></tr>
+<tr><td><p>并发</p></td><td><p>库存并发扣减、并发接单、同一订单重复支付</p></td></tr>
+<tr><td><p>响应断言</p></td><td><p>三类形态分别断言：JSON code 10000/10001、dispatch_jump 的 .success/.error、纯文本 true/false</p></td></tr>
+</tbody>
+</table>

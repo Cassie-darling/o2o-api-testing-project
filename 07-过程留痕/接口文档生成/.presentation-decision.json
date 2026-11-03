@@ -1,0 +1,1 @@
+{"audience":"O2O测试站的接口测试人员","reader_task":"据接口文档解析URL/方法/鉴权/参数/返回/状态码以编写接口测试用例，并知晓环境阻断缺陷","genre_contract":null,"adapter":null,"presentation_mode":"formal","visual_plan":{"reason":"接口文档以原生表格承载参数、代码块承载请求响应，无需画板或HTML组件","blocks":[]}}
